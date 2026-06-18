@@ -11,12 +11,12 @@
 
 ## 2. Database & Repository Interfaces
 
-- [ ] 2.1 Define `SkillRepository` and `SourceRepository` TypeScript interfaces in `src/server/db/types.ts`
-- [ ] 2.2 Define `SearchProvider` interface in `src/server/search/types.ts`
-- [ ] 2.3 Implement SQLite schema: `sources` and `skills` tables with migrations in `src/server/db/schema.ts`
-- [ ] 2.4 Implement `SqliteSkillRepository` and `SqliteSourceRepository` backed by `better-sqlite3`
-- [ ] 2.5 Implement database initialisation with fail-fast if `DATABASE_PATH` directory is not writable
-- [ ] 2.6 Write unit tests for repository CRUD operations
+- [x] 2.1 Define `SkillRepository` and `SourceRepository` TypeScript interfaces in `src/server/db/types.ts`
+- [x] 2.2 Define `SearchProvider` interface in `src/server/search/types.ts`
+- [x] 2.3 Implement SQLite schema: `sources` and `skills` tables with migrations in `src/server/db/schema.ts`
+- [x] 2.4 Implement `SqliteSkillRepository` and `SqliteSourceRepository` backed by `better-sqlite3`
+- [x] 2.5 Implement database initialisation with fail-fast if `DATABASE_PATH` directory is not writable
+- [x] 2.6 Write unit tests for repository CRUD operations
 
 ## 3. Authentication Middleware
 
