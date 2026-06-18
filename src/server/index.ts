@@ -9,6 +9,21 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env["PORT"] ?? "3000", 10);
 const UI_DIST = resolve(__dirname, "../../dist/ui");
 
+// Paths that must never fall through to the SPA — return a real 404 JSON.
+const NON_SPA_PREFIXES = ["/api/", "/.well-known/", "/healthz", "/readyz"];
+
+function isApiPath(url: string): boolean {
+  return NON_SPA_PREFIXES.some((prefix) => url === prefix || url.startsWith(prefix));
+}
+
+function isBrowserNavigation(req: { method: string; headers: Record<string, string | string[] | undefined> }): boolean {
+  if (req.method !== "GET") return false;
+  const accept = req.headers["accept"] ?? "";
+  return Array.isArray(accept)
+    ? accept.some((v) => v.includes("text/html"))
+    : accept.includes("text/html");
+}
+
 export async function buildServer() {
   const app = Fastify({ logger: true });
 
@@ -16,14 +31,21 @@ export async function buildServer() {
 
   app.get("/healthz", async () => ({ status: "ok" }));
 
+  // Readiness probe: always JSON, reflects real DB health once wired in §2.
+  app.get("/readyz", async () => ({ status: "ok" }));
+
   await app.register(fastifyStatic, {
     root: UI_DIST,
     prefix: "/",
     wildcard: false,
   });
 
-  app.setNotFoundHandler(async (_req, reply) => {
-    return reply.sendFile("index.html");
+  // SPA fallback: only for browser GET requests that aren't operational/API paths.
+  app.setNotFoundHandler(async (req, reply) => {
+    if (!isApiPath(req.url) && isBrowserNavigation(req)) {
+      return reply.sendFile("index.html");
+    }
+    return reply.code(404).send({ error: { code: "NOT_FOUND", message: "Not found" } });
   });
 
   return app;
