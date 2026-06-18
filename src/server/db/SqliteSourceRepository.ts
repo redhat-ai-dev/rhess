@@ -1,0 +1,97 @@
+import type Database from "better-sqlite3";
+import type {
+  Source,
+  SourceRepository,
+  CreateSourceInput,
+  UpdateSourceSyncInput,
+} from "./types.js";
+
+interface SourceRow {
+  id: number;
+  slug: string;
+  url: string;
+  created_at: string;
+  last_synced_at: string | null;
+  sync_status: Source["syncStatus"];
+  sync_error: string | null;
+}
+
+function toSource(row: SourceRow): Source {
+  return {
+    id: row.id,
+    slug: row.slug,
+    url: row.url,
+    createdAt: row.created_at,
+    lastSyncedAt: row.last_synced_at,
+    syncStatus: row.sync_status,
+    syncError: row.sync_error,
+  };
+}
+
+export class SqliteSourceRepository implements SourceRepository {
+  private readonly findAllStmt: Database.Statement<[], SourceRow>;
+  private readonly findByIdStmt: Database.Statement<[number], SourceRow>;
+  private readonly findBySlugStmt: Database.Statement<[string], SourceRow>;
+  private readonly createStmt: Database.Statement<[string, string], { id: number }>;
+  private readonly updateSyncStmt: Database.Statement<[string, string | null, string | null, number]>;
+  private readonly deleteStmt: Database.Statement<[number]>;
+
+  constructor(private readonly db: Database.Database) {
+    this.findAllStmt = db.prepare<[], SourceRow>(
+      "SELECT * FROM sources ORDER BY created_at ASC"
+    );
+    this.findByIdStmt = db.prepare<[number], SourceRow>(
+      "SELECT * FROM sources WHERE id = ?"
+    );
+    this.findBySlugStmt = db.prepare<[string], SourceRow>(
+      "SELECT * FROM sources WHERE slug = ?"
+    );
+    this.createStmt = db.prepare<[string, string], { id: number }>(
+      "INSERT INTO sources (slug, url) VALUES (?, ?) RETURNING id"
+    );
+    this.updateSyncStmt = db.prepare<[string, string | null, string | null, number]>(
+      `UPDATE sources
+       SET sync_status = ?, last_synced_at = ?, sync_error = ?
+       WHERE id = ?`
+    );
+    this.deleteStmt = db.prepare<[number]>(
+      "DELETE FROM sources WHERE id = ?"
+    );
+  }
+
+  findAll(): Source[] {
+    return this.findAllStmt.all().map(toSource);
+  }
+
+  findById(id: number): Source | undefined {
+    const row = this.findByIdStmt.get(id);
+    return row ? toSource(row) : undefined;
+  }
+
+  findBySlug(slug: string): Source | undefined {
+    const row = this.findBySlugStmt.get(slug);
+    return row ? toSource(row) : undefined;
+  }
+
+  create(input: CreateSourceInput): Source {
+    const row = this.createStmt.get(input.slug, input.url);
+    if (!row) throw new Error("INSERT failed to return id");
+    return this.findById(row.id)!;
+  }
+
+  updateSync(input: UpdateSourceSyncInput): void {
+    const now = input.status !== "syncing"
+      ? new Date().toISOString()
+      : null;
+    this.updateSyncStmt.run(
+      input.status,
+      now,
+      input.error ?? null,
+      input.id
+    );
+  }
+
+  delete(id: number): void {
+    this.deleteStmt.run(id);
+  }
+}

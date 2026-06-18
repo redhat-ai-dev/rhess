@@ -3,6 +3,8 @@ import fastifyStatic from "@fastify/static";
 import fastifyCors from "@fastify/cors";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
+import { initDatabase } from "./db/init.js";
+import type { Repositories } from "./db/init.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -42,8 +44,11 @@ function isBrowserNavigation(req: { method: string; headers: Record<string, stri
     : accept.includes("text/html");
 }
 
-export async function buildServer() {
+export async function buildServer(repos?: Repositories) {
   requireAdminToken();
+
+  const DB_PATH = process.env["DATABASE_PATH"] ?? "./rhess.db";
+  const db = repos ?? initDatabase(DB_PATH);
 
   const app = Fastify({ logger: true });
 
@@ -51,8 +56,16 @@ export async function buildServer() {
 
   app.get("/healthz", async () => ({ status: "ok" }));
 
-  // Readiness probe: always JSON, reflects real DB health once wired in §2.
-  app.get("/readyz", async () => ({ status: "ok" }));
+  // Readiness probe: verify the DB is reachable.
+  app.get("/readyz", async (_req, reply) => {
+    try {
+      db.skills.count();
+      return { status: "ok" };
+    } catch (err) {
+      app.log.error(err, "readyz: database unreachable");
+      return reply.code(503).send({ status: "error", message: "database unavailable" });
+    }
+  });
 
   await app.register(fastifyStatic, {
     root: UI_DIST,
