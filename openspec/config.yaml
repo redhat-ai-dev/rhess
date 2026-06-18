@@ -1,0 +1,15 @@
+schema: rhdh-spec-driven
+
+context: |
+  Project: Red Hat Enterprise Skills Server (RHESS)
+  Repository: github.com/redhat-ai-dev/rhess
+  Tech stack: Node.js, TypeScript, Fastify, React, PatternFly, SQLite, Vite
+  License: Apache-2.0
+  Deployment: OCI container on UBI9, OpenShift/Kubernetes
+
+  Single-package structure: src/server/ for backend, src/ui/ for React frontend.
+  Vite builds the React UI into dist/ui/ served by Fastify.
+  SQLite via better-sqlite3 with SkillRepository/SourceRepository interfaces.
+  Admin token auth (RHESS_ADMIN_TOKEN) gates write operations; all reads unauthenticated.
+  
+  We use conventional commits.

@@ -1,0 +1,52 @@
+{"ts":"2026-06-16T14:19:37Z","phase":"any","event":"turn.start","input":"User provided RHDHPLAN-1525 context; creating proposal artifact for RHESS enterprise skills server"}
+{"ts":"2026-06-16T14:20:14Z","phase":"authoring","event":"artifact.added","ref":"proposal.md"}
+{"ts":"2026-06-16T14:21:14Z","phase":"authoring","event":"artifact.added","ref":"design.md"}
+{"ts":"2026-06-16T14:21:50Z","phase":"any","event":"skill.invoked","name":"grill-me"}
+{"ts":"2026-06-16T14:23:53Z","phase":"any","event":"decision","input":"SQLite single-replica vs per-replica vs PostgreSQL for DP","output":"Single-replica SQLite behind repository interface, same pattern as Backstage. PostgreSQL later for scaling."}
+{"ts":"2026-06-16T14:29:07Z","phase":"any","event":"decision","input":"npx skills CLI has no auth support; conflicts with RBAC requirement","output":"Dual mode: authenticated API primary, unauthenticated .well-known/skills opt-in via env var. Flag to PM."}
+{"ts":"2026-06-16T14:31:08Z","phase":"any","event":"decision","input":"Researched npx skills CLI contract from vercel-labs/skills source","output":"Two discovery paths: .well-known/agent-skills/ (v0.2.0) and .well-known/skills/ (v0.1.0). Zero auth. Target v0.2.0 skill-md for MVP."}
+{"ts":"2026-06-16T14:35:42Z","phase":"any","event":"decision","input":"How to handle duplicate skill names across sources in .well-known index","output":"Prefix with source repo name only on collision. Core model uses (source, slug) composite key. 64-char limit edge case handled at sync."}
+{"ts":"2026-06-16T14:40:33Z","phase":"any","event":"decision","input":"Revised skill identity after researching skills.sh: owner/repo/name is the model","output":"Identity is (source, slug) like skills.sh. No prefixing. Duplicate names in .well-known index coexist with unique urls."}
+{"ts":"2026-06-16T14:42:32Z","phase":"any","event":"decision","input":"Search implementation: FTS5 vs Fuse.js for fuzzy search","output":"Fuse.js — Jira ticket explicitly requires fuzzy search with ranked results. Small catalog fits in memory."}
+{"ts":"2026-06-16T14:43:52Z","phase":"any","event":"decision","input":"Fuse.js scaling concern: won't work with Postgres or multi-replica","output":"Fuse.js behind SearchProvider interface for MVP. Swap to pg_trgm when Postgres arrives. Thin interface, clean migration."}
+{"ts":"2026-06-16T14:44:38Z","phase":"any","event":"decision","input":"Ingestion error handling: all-or-nothing vs best-effort sync","output":"Best-effort: index valid skills, return sync report with per-skill success/failure details."}
+{"ts":"2026-06-16T14:48:07Z","phase":"any","event":"decision","input":"Re-sync reconciliation strategy for existing skills","output":"Atomic swap: ingest to staging, then delete+insert in single SQLite transaction. No partial state."}
+{"ts":"2026-06-16T14:49:32Z","phase":"any","event":"decision","input":"Web UI authentication mechanism for token-based RBAC","output":"Token entry form, stored in localStorage, sent as Bearer header. UI shows admin controls based on role."}
+{"ts":"2026-06-16T14:51:31Z","phase":"any","event":"decision","input":"Where does the RHESS repo live?","output":"Target github.com/redhat-ai-dev — confirm with PM. Add to PM flag list alongside auth and SQLite decisions."}
+{"ts":"2026-06-16T14:52:58Z","phase":"any","event":"decision","input":"Git credential handling for private repo cloning","output":"Rely on container's native git config. Mount SSH keys/.gitconfig via K8s Secrets. No custom credential mgmt."}
+{"ts":"2026-06-16T14:56:39Z","phase":"any","event":"decision","input":"SKILL.md content storage: SQLite vs filesystem vs object storage","output":"SQLite for MVP (metadata+content). Abstract behind SkillRepository. Trajectory: Postgres then OCI registry at enterprise scale."}
+{"ts":"2026-06-16T14:57:24Z","phase":"any","event":"decision","input":"Node.js version and container base image","output":"Node.js 24 on ubi9/nodejs-24 with multi-stage build. User corrected stale knowledge."}
+{"ts":"2026-06-16T14:57:50Z","phase":"any","event":"decision","input":"API error response format","output":"Structured JSON errors: {error: {code, message}}. Fastify custom error handler."}
+{"ts":"2026-06-16T15:02:05Z","phase":"any","event":"decision","input":"DELETE skill behavior: transient removal vs blocklist vs drop endpoint","output":"Blocklist approach: delete marks skill as blocked, sync skips it. Flag to PM — may differ from intended behavior."}
+{"ts":"2026-06-16T15:02:43Z","phase":"any","event":"decision","input":"Which .well-known discovery versions to serve?","output":"v0.2.0 only at /.well-known/agent-skills/index.json. No v0.1.0 backward compat."}
+{"ts":"2026-06-16T15:03:29Z","phase":"any","event":"decision","input":"Artifact types for .well-known serving: skill-md only or archive too?","output":"Both: skill-md for single-file skills, archive (tar.gz) for multi-file. Generate bundles + SHA256 digests at sync."}
+{"ts":"2026-06-16T15:03:54Z","phase":"any","event":"decision","input":"React UI framework choice","output":"PatternFly — Red Hat design system. Visual consistency with RHDH/OpenShift. Built-in table, search, form components."}
+{"ts":"2026-06-16T15:04:36Z","phase":"any","event":"decision","input":"SKILL.md rendering: server-side vs client-side","output":"Client-side with react-markdown. API serves raw content + parsed metadata. UI controls presentation."}
+{"ts":"2026-06-16T15:10:01Z","phase":"any","event":"decision","input":"Source identity: admin-provided vs URL-derived","output":"Admin-provided kebab-case slug. Internal to RHESS API only, no impact on .well-known/npx compat."}
+{"ts":"2026-06-16T15:19:10Z","phase":"any","event":"decision","input":"PM flag comment posted on RHDHPLAN-1525","output":"4 items flagged: SQLite/single-replica, npx auth gap, repo org, DELETE blocklist. Awaiting PM response."}
+{"ts":"2026-06-16T15:26:39Z","phase":"authoring","event":"artifact.revised","ref":"design.md","input":"Grill-me session: 20 design decisions resolved","output":"Updated design.md with all decisions. 4 items marked pending PM input. Open questions section removed."}
+{"ts":"2026-06-16T15:26:43Z","phase":"any","event":"turn.end","output":"Design.md updated with 20 decisions from grill-me. PM comment posted on RHDHPLAN-1525. 4 items await PM input."}
+{"ts":"2026-06-16T18:37:43Z","phase":"any","event":"context.compacted","input":"Claude Code PreCompact hook fired during rhess-enterprise-skills-server.","output":"Context compaction observed; chat continuation may follow."}
+{"ts":"2026-06-17T17:51:03Z","phase":"any","event":"turn.start","input":"Create 6 capability spec files: skills-catalog-api, skill-source-management, skill-ingestion, rbac-auth, web-directory, container-deployment"}
+{"ts":"2026-06-17T17:54:05Z","phase":"authoring","event":"artifact.added","ref":"specs/skills-catalog-api/spec.md"}
+{"ts":"2026-06-17T17:54:05Z","phase":"authoring","event":"artifact.added","ref":"specs/skill-source-management/spec.md"}
+{"ts":"2026-06-17T17:54:05Z","phase":"authoring","event":"artifact.added","ref":"specs/skill-ingestion/spec.md"}
+{"ts":"2026-06-17T17:54:05Z","phase":"authoring","event":"artifact.added","ref":"specs/rbac-auth/spec.md"}
+{"ts":"2026-06-17T17:54:05Z","phase":"authoring","event":"artifact.added","ref":"specs/web-directory/spec.md"}
+{"ts":"2026-06-17T17:54:05Z","phase":"authoring","event":"artifact.added","ref":"specs/container-deployment/spec.md"}
+{"ts":"2026-06-17T17:54:12Z","phase":"any","event":"turn.end","output":"Created 6 capability spec files: skills-catalog-api, skill-source-management, skill-ingestion, rbac-auth, web-directory, container-deployment. specs artifact now complete."}
+{"ts":"2026-06-17T20:52:56Z","phase":"any","event":"turn.start","input":"Generate tasks.md: implementation checklist for all 6 RHESS capabilities"}
+{"ts":"2026-06-17T20:53:42Z","phase":"authoring","event":"artifact.added","ref":"tasks.md"}
+{"ts":"2026-06-17T20:53:42Z","phase":"any","event":"turn.end","output":"Created tasks.md: 10 groups, 47 tasks covering scaffold, DB, auth, ingestion, catalog API, source API, health probes, UI, container, and docs"}
+{"ts":"2026-06-17T21:18:20Z","phase":"any","event":"context.compacted","input":"Claude Code PreCompact hook fired during rhess-enterprise-skills-server.","output":"Context compaction observed; chat continuation may follow."}
+{"ts":"2026-06-18T17:36:23Z","phase":"apply","event":"mode.chosen","mode":"direct","input":"apply-change skill invoked for section 1 scaffold","rationale":"Section 1 is mechanical scaffolding; reassess for semantic layers 2-8"}
+{"ts":"2026-06-18T17:36:45Z","phase":"apply","event":"task.start","ref":"1.1"}
+{"ts":"2026-06-18T17:37:28Z","phase":"apply","event":"task.complete","ref":"1.1","mode":"direct","input":"task 1.1","output":"github.com/redhat-ai-dev/rhess created, Apache-2.0, README pushed, cloned to ~/git/skills-server"}
+{"ts":"2026-06-18T17:37:29Z","phase":"apply","event":"task.start","ref":"1.2"}
+{"ts":"2026-06-18T17:40:01Z","phase":"apply","event":"task.complete","ref":"1.2","mode":"direct","input":"section 1 scaffold","output":"committed in 64e6406"}
+{"ts":"2026-06-18T17:40:01Z","phase":"apply","event":"task.complete","ref":"1.3","mode":"direct","input":"section 1 scaffold","output":"committed in 64e6406"}
+{"ts":"2026-06-18T17:40:01Z","phase":"apply","event":"task.complete","ref":"1.4","mode":"direct","input":"section 1 scaffold","output":"committed in 64e6406"}
+{"ts":"2026-06-18T17:40:01Z","phase":"apply","event":"task.complete","ref":"1.5","mode":"direct","input":"section 1 scaffold","output":"committed in 64e6406"}
+{"ts":"2026-06-18T17:40:01Z","phase":"apply","event":"task.complete","ref":"1.6","mode":"direct","input":"vite.config.ts","output":"Vite builds dist/ui cleanly, proxy to :3000 configured"}
+{"ts":"2026-06-18T17:40:16Z","phase":"any","event":"decision","input":"mode assessment after section 1","output":"switching to team mode for sections 2-8; semantic complexity across DB/auth/API/UI layers warrants verifier. Direct mode for sections 9-10."}
+{"ts":"2026-06-18T17:40:21Z","phase":"any","event":"agent.spawned","kind":"implementer-verifier","count":"2","input":"launching section 2 implementer + verifier"}
