@@ -9,6 +9,24 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env["PORT"] ?? "3000", 10);
 const UI_DIST = resolve(__dirname, "../../dist/ui");
 
+function requireAdminToken(): string {
+  const token = process.env["RHESS_ADMIN_TOKEN"];
+  if (!token || token.trim() === "") {
+    process.stderr.write(
+      "[RHESS] FATAL: RHESS_ADMIN_TOKEN is not set or empty. " +
+        "Set this environment variable before starting the server.\n"
+    );
+    process.exit(1);
+  }
+  return token;
+}
+
+function parseCorsOrigin(): string | string[] | boolean {
+  const raw = process.env["ALLOWED_ORIGINS"];
+  if (!raw || raw.trim() === "" || raw.trim() === "*") return true;
+  return raw.split(",").map((o) => o.trim()).filter(Boolean);
+}
+
 // Paths that must never fall through to the SPA — return a real 404 JSON.
 const NON_SPA_PREFIXES = ["/api/", "/.well-known/", "/healthz", "/readyz"];
 
@@ -25,9 +43,11 @@ function isBrowserNavigation(req: { method: string; headers: Record<string, stri
 }
 
 export async function buildServer() {
+  requireAdminToken();
+
   const app = Fastify({ logger: true });
 
-  await app.register(fastifyCors, { origin: true });
+  await app.register(fastifyCors, { origin: parseCorsOrigin() });
 
   app.get("/healthz", async () => ({ status: "ok" }));
 
