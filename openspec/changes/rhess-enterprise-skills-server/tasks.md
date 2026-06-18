@@ -2,12 +2,12 @@
 
 ## 1. Project Scaffold
 
-- [ ] 1.1 Create `github.com/redhat-ai-dev/rhess` repository with Apache-2.0 license and initial README
-- [ ] 1.2 Initialise Node.js/TypeScript project: `package.json`, `tsconfig.json`, `eslint.config.js`, `.gitignore`
-- [ ] 1.3 Add production dependencies: `fastify`, `@fastify/static`, `@fastify/cors`, `better-sqlite3`, `simple-git`, `js-yaml`, `fuse.js`, `tar`
-- [ ] 1.4 Add dev dependencies: `typescript`, `vite`, `@vitejs/plugin-react`, `tsx`, `vitest`
-- [ ] 1.5 Set up `src/server/` and `src/ui/` directory structure per design decision 4
-- [ ] 1.6 Configure Vite to build React UI into `dist/ui/` served by Fastify
+- [x] 1.1 Create `github.com/redhat-ai-dev/rhess` repository with Apache-2.0 license and initial README
+- [x] 1.2 Initialise Node.js/TypeScript project: `package.json`, `tsconfig.json`, `eslint.config.js`, `.gitignore`
+- [x] 1.3 Add production dependencies: `fastify`, `@fastify/static`, `@fastify/cors`, `better-sqlite3`, `simple-git`, `js-yaml`, `fuse.js`, `tar`
+- [x] 1.4 Add dev dependencies: `typescript`, `vite`, `@vitejs/plugin-react`, `tsx`, `vitest`
+- [x] 1.5 Set up `src/server/` and `src/ui/` directory structure per design decision 4
+- [x] 1.6 Configure Vite to build React UI into `dist/ui/` served by Fastify
 
 ## 2. Database & Repository Interfaces
 
