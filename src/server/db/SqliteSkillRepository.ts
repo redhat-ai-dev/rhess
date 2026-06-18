@@ -16,6 +16,15 @@ interface SkillRow {
   updated_at: string;
 }
 
+function parseSupportingFiles(raw: string): string[] {
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 function toSkill(row: SkillRow): Skill {
   return {
     id: row.id,
@@ -27,7 +36,7 @@ function toSkill(row: SkillRow): Skill {
     artifactType: row.artifact_type,
     digest: row.digest,
     content: row.content,
-    supportingFiles: row.supporting_files,
+    supportingFiles: parseSupportingFiles(row.supporting_files),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -75,12 +84,16 @@ export class SqliteSkillRepository implements SkillRepository {
 
   findAll(opts: { page?: number; perPage?: number; sort?: "name" | "createdAt" } = {}): Skill[] {
     const { page = 1, perPage = 20, sort = "name" } = opts;
-    const orderBy = VALID_SORT[sort] ?? VALID_SORT["name"];
-    const offset = (Math.max(1, page) - 1) * perPage;
+    const orderBy = VALID_SORT[sort] ?? VALID_SORT["name"]!;
+    const safePage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1;
+    const safePerPage = Number.isFinite(perPage)
+      ? Math.min(100, Math.max(1, Math.floor(perPage)))
+      : 20;
+    const offset = (safePage - 1) * safePerPage;
     const stmt = this.db.prepare<[number, number], SkillRow>(
       `SELECT * FROM skills ORDER BY ${orderBy} LIMIT ? OFFSET ?`
     );
-    return stmt.all(perPage, offset).map(toSkill);
+    return stmt.all(safePerPage, offset).map(toSkill);
   }
 
   findBySourceAndSlug(sourceSlug: string, slug: string): Skill | undefined {

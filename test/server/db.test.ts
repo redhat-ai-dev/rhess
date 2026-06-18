@@ -94,12 +94,21 @@ describe("SqliteSkillRepository", () => {
 
   it("upserts skills and retrieves them", () => {
     const src = seedSource();
-    skills.upsertMany([{ ...baseSkill, sourceId: src.id }]);
+    skills.upsertMany([{ ...baseSkill, sourceId: src.id, supportingFiles: ["README.md", "examples/foo.ts"] }]);
 
     expect(skills.count()).toBe(1);
     const found = skills.findBySourceAndSlug("acme", "react-patterns");
     expect(found?.name).toBe("React Patterns");
     expect(found?.content).toBe("# React Patterns\nContent here.");
+    expect(found?.supportingFiles).toEqual(["README.md", "examples/foo.ts"]);
+  });
+
+  it("returns supportingFiles as string[] (not raw JSON)", () => {
+    const src = seedSource();
+    skills.upsertMany([{ ...baseSkill, sourceId: src.id, supportingFiles: ["a.md", "b.ts"] }]);
+    const found = skills.findBySourceAndSlug("acme", "react-patterns");
+    expect(Array.isArray(found?.supportingFiles)).toBe(true);
+    expect(found?.supportingFiles).toHaveLength(2);
   });
 
   it("updates skill on re-upsert", () => {
@@ -126,6 +135,25 @@ describe("SqliteSkillRepository", () => {
 
     expect(skills.findAll({ page: 1, perPage: 2 })).toHaveLength(2);
     expect(skills.findAll({ page: 3, perPage: 2 })).toHaveLength(1);
+  });
+
+  it("clamps perPage to 1–100", () => {
+    const src = seedSource();
+    skills.upsertMany(
+      Array.from({ length: 5 }, (_, i) => ({
+        ...baseSkill,
+        sourceId: src.id,
+        slug: `skill-${i}`,
+        name: `Skill ${i}`,
+        digest: `d${i}`,
+      }))
+    );
+    // perPage 0 → treated as 1
+    expect(skills.findAll({ page: 1, perPage: 0 })).toHaveLength(1);
+    // perPage 9999 → capped at 100 (returns all 5)
+    expect(skills.findAll({ page: 1, perPage: 9999 })).toHaveLength(5);
+    // negative page → treated as 1
+    expect(skills.findAll({ page: -5, perPage: 2 })).toHaveLength(2);
   });
 
   it("finds skills by source", () => {

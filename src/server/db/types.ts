@@ -20,8 +20,8 @@ export interface Skill {
   digest: string;
   /** Raw SKILL.md content */
   content: string;
-  /** JSON-encoded string[] of supporting file paths relative to skill root */
-  supportingFiles: string;
+  /** Paths of supporting files relative to the skill root */
+  supportingFiles: string[];
   createdAt: string;
   updatedAt: string;
 }
