@@ -31,10 +31,10 @@
 - [x] 4.2 Implement `discoverSkills(repoPath: string): SkillCandidate[]` walking all Agent Skills spec discovery paths
 - [x] 4.3 Implement YAML frontmatter parser: validates `name` and `description` are present; returns structured metadata
 - [x] 4.4 Implement archive bundler: tar.gz multi-file skills, compute SHA256 digest; single-file skills served as-is with digest
-- [ ] 4.5 Implement `ingestSource(sourceId, url): SyncReport` — clone → discover → parse → classify → stage
-- [ ] 4.6 Implement atomic swap: single SQLite transaction deletes old source skills and inserts new ones
-- [ ] 4.7 Implement bundled example skills loader: seeds catalog on first boot if no sources registered
-- [ ] 4.8 Write integration tests: valid repo → skills indexed; malformed frontmatter → skipped + reported; re-sync → atomic replace
+- [x] 4.5 Implement `ingestSource(sourceId, url): SyncReport` — clone → discover → parse → classify → stage
+- [x] 4.6 Implement atomic swap: single SQLite transaction deletes old source skills and inserts new ones
+- [x] 4.7 Implement bundled example skills loader: seeds catalog on first boot if no sources registered
+- [x] 4.8 Write integration tests: valid repo → skills indexed; malformed frontmatter → skipped + reported; re-sync → atomic replace
 
 ## 5. Skills Catalog REST API
 

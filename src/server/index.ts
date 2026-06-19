@@ -5,6 +5,7 @@ import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { initDatabase } from "./db/init.js";
 import type { Repositories } from "./db/init.js";
+import { loadExamplesIfEmpty } from "./ingestion/examples.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -49,6 +50,8 @@ export async function buildServer(repos?: Repositories) {
 
   const DB_PATH = process.env["DATABASE_PATH"] ?? "./rhess.db";
   const db = repos ?? initDatabase(DB_PATH);
+
+  await loadExamplesIfEmpty(db);
 
   const app = Fastify({ logger: true });
 

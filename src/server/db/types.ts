@@ -56,6 +56,8 @@ export interface SkillRepository {
   upsertMany(skills: UpsertSkillInput[]): void;
   deleteBySource(sourceId: number): void;
   count(): number;
+  /** Runs fn inside a single SQLite transaction. Callback MUST be synchronous — do not await inside. */
+  transactionSync<T>(fn: () => T): T;
 }
 
 export interface SourceRepository {
