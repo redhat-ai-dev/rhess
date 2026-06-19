@@ -14,9 +14,9 @@ export interface SourcesRouteOptions {
 
 /** Rebuild the Fuse.js search index from all skills currently in DB. */
 function rebuildSearchIndex(repos: Repositories, searchProvider: SearchProvider): void {
-  const allSkills = repos.skills.findAll({ perPage: 10000 });
   searchProvider.buildIndex(
-    allSkills.map((s) => ({
+    repos.skills.findAllUnpaged().map((s) => ({
+      id: s.id,
       sourceSlug: s.sourceSlug,
       slug: s.slug,
       name: s.name,
@@ -92,7 +92,7 @@ const sourcesPlugin: FastifyPluginAsync<SourcesRouteOptions> = async (fastify, o
       repos.sources.delete(source.id);
       const message = err instanceof Error ? err.message : String(err);
       return reply.code(422).send({
-        error: { code: "CLONE_FAILED", message },
+        error: { code: "INGEST_FAILED", message },
       });
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -136,13 +136,12 @@ const sourcesPlugin: FastifyPluginAsync<SourcesRouteOptions> = async (fastify, o
       });
     }
 
-    if (source.syncStatus === "syncing") {
+    const locked = repos.sources.trySetSyncing(id);
+    if (!locked) {
       return reply.code(409).send({
         error: { code: "SYNC_IN_PROGRESS", message: "A sync is already in progress for this source" },
       });
     }
-
-    repos.sources.updateSync({ id, status: "syncing" });
 
     try {
       const syncReport = await ingestSource(source.id, source.slug, source.url, repos);

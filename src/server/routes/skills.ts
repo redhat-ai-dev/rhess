@@ -1,6 +1,49 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { extract } from "tar";
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
 import type { SkillRepository } from "../db/types.js";
 import type { SearchProvider } from "../search/types.js";
+
+/**
+ * Decode a base64 tar.gz archive and return all contained files as
+ * {path, contents} entries, with SKILL.md sorted first.
+ */
+async function expandArchiveToFiles(
+  base64Content: string
+): Promise<Array<{ path: string; contents: string }>> {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "rhess-skill-"));
+  try {
+    const buf = Buffer.from(base64Content, "base64");
+    const tmpFile = path.join(tmpDir, "_archive.tar.gz");
+    fs.writeFileSync(tmpFile, buf);
+    await extract({ file: tmpFile, cwd: tmpDir });
+
+    const entries: Array<{ path: string; contents: string }> = [];
+    const walk = (dir: string, relBase: string) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const absPath = path.join(dir, entry.name);
+        const relPath = relBase ? `${relBase}/${entry.name}` : entry.name;
+        if (entry.isDirectory()) {
+          walk(absPath, relPath);
+        } else if (entry.name !== "_archive.tar.gz") {
+          entries.push({ path: relPath, contents: fs.readFileSync(absPath, "utf-8") });
+        }
+      }
+    };
+    walk(tmpDir, "");
+
+    entries.sort((a, b) => {
+      if (a.path.toLowerCase() === "skill.md") return -1;
+      if (b.path.toLowerCase() === "skill.md") return 1;
+      return a.path.localeCompare(b.path);
+    });
+    return entries;
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
 
 interface SkillsRouteOptions {
   skills: SkillRepository;
@@ -29,17 +72,14 @@ const skillsPlugin: FastifyPluginAsync<SkillsRouteOptions> = async (fastify, opt
       }
 
       const results = search.search(q.trim());
-      const data = results.map((r) => {
-        const skill = skills.findBySourceAndSlug(r.sourceSlug, r.slug);
-        return {
-          id: skill?.id,
-          source: r.sourceSlug,
-          slug: r.slug,
-          name: r.name,
-          description: r.description,
-          score: r.score,
-        };
-      });
+      const data = results.map((r) => ({
+        id: r.id,
+        source: r.sourceSlug,
+        slug: r.slug,
+        name: r.name,
+        description: r.description,
+        score: r.score,
+      }));
 
       return reply.send({ data });
     }
@@ -114,9 +154,10 @@ const skillsPlugin: FastifyPluginAsync<SkillsRouteOptions> = async (fastify, opt
         });
       }
 
-      const files: Array<{ path: string; contents: string }> = [
-        { path: "SKILL.md", contents: skill.content },
-      ];
+      const files: Array<{ path: string; contents: string }> =
+        skill.artifactType === "skill-md"
+          ? [{ path: "SKILL.md", contents: skill.content }]
+          : await expandArchiveToFiles(skill.content);
 
       return reply.send({
         id: skill.id,

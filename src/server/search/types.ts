@@ -1,4 +1,5 @@
 export interface SearchResult {
+  id: number;
   sourceSlug: string;
   slug: string;
   name: string;
@@ -14,6 +15,7 @@ export interface SearchProvider {
 }
 
 export interface SearchIndexItem {
+  id: number;
   sourceSlug: string;
   slug: string;
   name: string;

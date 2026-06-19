@@ -75,9 +75,9 @@ export async function buildServer(repos?: Repositories) {
 
   // 5.5 — Build Fuse.js search index from the current catalog
   const searchProvider = new FuseSearchProvider();
-  const allSkills = db.skills.findAll({ perPage: 10000 });
   searchProvider.buildIndex(
-    allSkills.map((s) => ({
+    db.skills.findAllUnpaged().map((s) => ({
+      id: s.id,
       sourceSlug: s.sourceSlug,
       slug: s.slug,
       name: s.name,

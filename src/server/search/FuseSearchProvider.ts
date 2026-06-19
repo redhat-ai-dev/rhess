@@ -17,6 +17,7 @@ export class FuseSearchProvider implements SearchProvider {
   search(query: string, limit?: number): SearchResult[] {
     const results = this.fuse.search(query, limit !== undefined ? { limit } : undefined);
     return results.map((r) => ({
+      id: r.item.id,
       sourceSlug: r.item.sourceSlug,
       slug: r.item.slug,
       name: r.item.name,

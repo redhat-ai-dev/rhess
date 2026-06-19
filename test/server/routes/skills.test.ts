@@ -38,7 +38,8 @@ async function buildTestServer() {
 
   const search = new FuseSearchProvider();
   search.buildIndex(
-    skills.findAll({ perPage: 1000 }).map((s) => ({
+    skills.findAllUnpaged().map((s) => ({
+      id: s.id,
       sourceSlug: s.sourceSlug,
       slug: s.slug,
       name: s.name,

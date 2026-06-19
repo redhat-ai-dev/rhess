@@ -1,4 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
+
+// Mock clone so tests don't make real network calls
+vi.mock("../../../src/server/ingestion/clone.js", () => ({
+  clone: vi.fn().mockRejectedValue(new Error("CLONE_FAILED: simulated network failure")),
+}));
 import Fastify from "fastify";
 import type { FastifyInstance } from "fastify";
 import BetterSqlite3 from "better-sqlite3";
@@ -98,7 +103,7 @@ describe("Source Management API", () => {
       url: "/api/v1/sources",
       headers: { "content-type": "application/json" },
       payload: {
-        url: "https://rhess-test-nonexistent.invalid/repo.git",
+        url: "https://example.com/repo.git",
         slug: "clone-fail-test",
       },
     });
@@ -107,10 +112,10 @@ describe("Source Management API", () => {
     const body = res.json();
     expect(body.error.code).toBe("CLONE_FAILED");
 
-    // Source record must have been deleted — no orphan
+    // Source record must not exist — no orphan
     expect(repos.sources.findAll().length).toBe(countBefore);
     expect(repos.sources.findBySlug("clone-fail-test")).toBeUndefined();
-  }, 30_000);
+  });
 
   // -------------------------------------------------------------------------
   // DELETE /api/v1/sources/:id

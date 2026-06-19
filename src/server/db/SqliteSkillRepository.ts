@@ -83,6 +83,14 @@ export class SqliteSkillRepository implements SkillRepository {
     );
   }
 
+  findAllUnpaged(sort: "name" | "createdAt" | "updatedAt" = "name"): Skill[] {
+    const orderBy = VALID_SORT[sort] ?? VALID_SORT["name"]!;
+    const stmt = this.db.prepare<[], SkillRow>(
+      `SELECT * FROM skills ORDER BY ${orderBy}`
+    );
+    return stmt.all().map(toSkill);
+  }
+
   findAll(opts: { page?: number; perPage?: number; sort?: "name" | "createdAt" | "updatedAt" } = {}): Skill[] {
     const { page = 1, perPage = 20, sort = "name" } = opts;
     const orderBy = VALID_SORT[sort] ?? VALID_SORT["name"]!;
