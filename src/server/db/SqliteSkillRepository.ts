@@ -45,6 +45,7 @@ function toSkill(row: SkillRow): Skill {
 const VALID_SORT: Record<string, string> = {
   name: "name COLLATE NOCASE ASC",
   createdAt: "created_at ASC",
+  updatedAt: "updated_at DESC",
 };
 
 export class SqliteSkillRepository implements SkillRepository {
@@ -82,7 +83,15 @@ export class SqliteSkillRepository implements SkillRepository {
     );
   }
 
-  findAll(opts: { page?: number; perPage?: number; sort?: "name" | "createdAt" } = {}): Skill[] {
+  findAllUnpaged(sort: "name" | "createdAt" | "updatedAt" = "name"): Skill[] {
+    const orderBy = VALID_SORT[sort] ?? VALID_SORT["name"]!;
+    const stmt = this.db.prepare<[], SkillRow>(
+      `SELECT * FROM skills ORDER BY ${orderBy}`
+    );
+    return stmt.all().map(toSkill);
+  }
+
+  findAll(opts: { page?: number; perPage?: number; sort?: "name" | "createdAt" | "updatedAt" } = {}): Skill[] {
     const { page = 1, perPage = 20, sort = "name" } = opts;
     const orderBy = VALID_SORT[sort] ?? VALID_SORT["name"]!;
     const safePage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1;

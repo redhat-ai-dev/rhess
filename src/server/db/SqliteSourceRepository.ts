@@ -33,7 +33,8 @@ export class SqliteSourceRepository implements SourceRepository {
   private readonly findByIdStmt: Database.Statement<[number], SourceRow>;
   private readonly findBySlugStmt: Database.Statement<[string], SourceRow>;
   private readonly createStmt: Database.Statement<[string, string], { id: number }>;
-  private readonly updateSyncStmt: Database.Statement<[string, string | null, string | null, number]>;
+  private readonly updateSyncStmt: Database.Statement<[string, string, string | null, number]>;
+  private readonly trySetSyncingStmt: Database.Statement<[number]>;
   private readonly deleteStmt: Database.Statement<[number]>;
 
   constructor(private readonly db: Database.Database) {
@@ -49,10 +50,18 @@ export class SqliteSourceRepository implements SourceRepository {
     this.createStmt = db.prepare<[string, string], { id: number }>(
       "INSERT INTO sources (slug, url) VALUES (?, ?) RETURNING id"
     );
-    this.updateSyncStmt = db.prepare<[string, string | null, string | null, number]>(
+    // last_synced_at is only updated to 'now' on success (status='idle');
+    // for all other transitions the existing timestamp is preserved.
+    this.updateSyncStmt = db.prepare<[string, string, string | null, number]>(
       `UPDATE sources
-       SET sync_status = ?, last_synced_at = ?, sync_error = ?
+       SET sync_status    = ?,
+           last_synced_at = CASE ? WHEN 'idle' THEN strftime('%Y-%m-%dT%H:%M:%SZ', 'now') ELSE last_synced_at END,
+           sync_error     = ?
        WHERE id = ?`
+    );
+    this.trySetSyncingStmt = db.prepare<[number]>(
+      `UPDATE sources SET sync_status = 'syncing'
+       WHERE id = ? AND sync_status != 'syncing'`
     );
     this.deleteStmt = db.prepare<[number]>(
       "DELETE FROM sources WHERE id = ?"
@@ -80,15 +89,16 @@ export class SqliteSourceRepository implements SourceRepository {
   }
 
   updateSync(input: UpdateSourceSyncInput): void {
-    const now = input.status !== "syncing"
-      ? new Date().toISOString()
-      : null;
     this.updateSyncStmt.run(
       input.status,
-      now,
+      input.status,
       input.error ?? null,
       input.id
     );
+  }
+
+  trySetSyncing(id: number): boolean {
+    return this.trySetSyncingStmt.run(id).changes > 0;
   }
 
   delete(id: number): void {

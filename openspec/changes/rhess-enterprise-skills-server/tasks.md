@@ -38,21 +38,21 @@
 
 ## 5. Skills Catalog REST API
 
-- [ ] 5.1 Implement `GET /api/v1/skills` with pagination (`page`, `per_page`, `sort`) — unauthenticated
-- [ ] 5.2 Implement `GET /api/v1/skills/:source/:slug` returning full file tree — unauthenticated
-- [ ] 5.3 Implement `GET /api/v1/skills/search?q=<query>` using `Fuse.js` via `SearchProvider` — unauthenticated
+- [x] 5.1 Implement `GET /api/v1/skills` with pagination (`page`, `per_page`, `sort`) — unauthenticated
+- [x] 5.2 Implement `GET /api/v1/skills/:source/:slug` returning full file tree — unauthenticated
+- [x] 5.3 Implement `GET /api/v1/skills/search?q=<query>` using `Fuse.js` via `SearchProvider` — unauthenticated
 - [ ] 5.4 Implement `GET /.well-known/agent-skills/index.json` (v0.2.0 schema with `name`, `type`, `description`, `url`, `digest`) — unauthenticated
 - [ ] 5.4 Implement artifact serving endpoints: raw SKILL.md and tar.gz archive downloads
-- [ ] 5.5 Implement `Fuse.js`-backed `SearchProvider`; wire index rebuild on every source sync
-- [ ] 5.6 Implement global Fastify error handler returning `{error: {code, message}}` for all 4xx/5xx
-- [ ] 5.7 Write API tests: pagination bounds, 404 on unknown skill, fuzzy search matches, `.well-known/` index shape
+- [x] 5.5 Implement `Fuse.js`-backed `SearchProvider`; wire index rebuild on every source sync
+- [x] 5.6 Implement global Fastify error handler returning `{error: {code, message}}` for all 4xx/5xx
+- [x] 5.7 Write API tests: pagination bounds, 404 on unknown skill, fuzzy search matches, `.well-known/` index shape
 
 ## 6. Source Management REST API
 
-- [ ] 6.1 Implement `POST /api/v1/sources`: validate slug (kebab-case, 1–64 chars), reject duplicate slug with 409, trigger initial ingestion
-- [ ] 6.2 Implement `DELETE /api/v1/sources/:id`: remove source record and all associated skills in one transaction
-- [ ] 6.3 Implement `POST /api/v1/sources/:id/sync`: reject concurrent sync with 409, run `ingestSource`, return sync report
-- [ ] 6.4 Write API tests: duplicate slug → 409, invalid slug → 400, clone failure → 422, concurrent sync → 409, unknown source → 404
+- [x] 6.1 Implement `POST /api/v1/sources`: validate slug (kebab-case, 1–64 chars), reject duplicate slug with 409, trigger initial ingestion
+- [x] 6.2 Implement `DELETE /api/v1/sources/:id`: remove source record and all associated skills in one transaction
+- [x] 6.3 Implement `POST /api/v1/sources/:id/sync`: reject concurrent sync with 409, run `ingestSource`, return sync report
+- [x] 6.4 Write API tests: duplicate slug → 409, invalid slug → 400, clone failure → 422, concurrent sync → 409, unknown source → 404
 
 ## 7. Health & Readiness Probes
 

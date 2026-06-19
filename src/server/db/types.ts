@@ -50,7 +50,9 @@ export interface UpsertSkillInput {
 }
 
 export interface SkillRepository {
-  findAll(opts?: { page?: number; perPage?: number; sort?: "name" | "createdAt" }): Skill[];
+  findAll(opts?: { page?: number; perPage?: number; sort?: "name" | "createdAt" | "updatedAt" }): Skill[];
+  /** Return ALL skills without any pagination cap — use for search index builds. */
+  findAllUnpaged(sort?: "name" | "createdAt" | "updatedAt"): Skill[];
   findBySourceAndSlug(sourceSlug: string, slug: string): Skill | undefined;
   findBySource(sourceId: number): Skill[];
   upsertMany(skills: UpsertSkillInput[]): void;
@@ -66,5 +68,10 @@ export interface SourceRepository {
   findBySlug(slug: string): Source | undefined;
   create(input: CreateSourceInput): Source;
   updateSync(input: UpdateSourceSyncInput): void;
+  /**
+   * Atomically set sync_status to 'syncing' only when currently idle/error.
+   * Returns true if the transition happened (source was not already syncing).
+   */
+  trySetSyncing(id: number): boolean;
   delete(id: number): void;
 }
