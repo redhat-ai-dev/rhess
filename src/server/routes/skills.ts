@@ -57,7 +57,7 @@ function invalidParams(reply: FastifyReply, message: string) {
 const skillsPlugin: FastifyPluginAsync<SkillsRouteOptions> = async (fastify, opts) => {
   const { skills, search } = opts;
 
-  // 5.3 — Search (must be registered BEFORE /:source/:slug to avoid path conflict)
+  // Search must be registered BEFORE /:source/:slug to avoid path conflict
   fastify.get(
     "/search",
     async (
@@ -85,7 +85,7 @@ const skillsPlugin: FastifyPluginAsync<SkillsRouteOptions> = async (fastify, opt
     }
   );
 
-  // 5.1 — Paginated listing
+  // Paginated listing
   fastify.get(
     "/",
     async (
@@ -138,7 +138,7 @@ const skillsPlugin: FastifyPluginAsync<SkillsRouteOptions> = async (fastify, opt
     }
   );
 
-  // 5.2 — Skill detail (registered AFTER /search)
+  // Skill detail (registered AFTER /search)
   fastify.get(
     "/:source/:slug",
     async (

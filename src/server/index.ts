@@ -58,7 +58,7 @@ export async function buildServer(repos?: Repositories) {
 
   const app = Fastify({ logger: true });
 
-  // 5.6 — Global error handler: all errors return {error: {code, message}}
+  // Global error handler: all errors return {error: {code, message}}
   app.setErrorHandler((err: FastifyError, _req, reply) => {
     const status = err.statusCode ?? 500;
     if (status < 500) {
@@ -73,7 +73,7 @@ export async function buildServer(repos?: Repositories) {
 
   await app.register(fastifyCors, { origin: parseCorsOrigin() });
 
-  // 5.5 — Build Fuse.js search index from the current catalog
+  // Build Fuse.js search index from the current catalog
   const searchProvider = new FuseSearchProvider();
   searchProvider.buildIndex(
     db.skills.findAllUnpaged().map((s) => ({
@@ -98,14 +98,14 @@ export async function buildServer(repos?: Repositories) {
     }
   });
 
-  // 5.1–5.3 — Skills catalog read API
+  // Skills catalog read API
   await app.register(skillsPlugin, {
     prefix: "/api/v1/skills",
     skills: db.skills,
     search: searchProvider,
   });
 
-  // 6.1–6.3 — Source management API
+  // Source management API
   await app.register(sourcesPlugin, {
     prefix: "/api/v1/sources",
     repos: db,
