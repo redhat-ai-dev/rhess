@@ -50,7 +50,7 @@ export interface UpsertSkillInput {
 }
 
 export interface SkillRepository {
-  findAll(opts?: { page?: number; perPage?: number; sort?: "name" | "createdAt" }): Skill[];
+  findAll(opts?: { page?: number; perPage?: number; sort?: "name" | "createdAt" | "updatedAt" }): Skill[];
   findBySourceAndSlug(sourceSlug: string, slug: string): Skill | undefined;
   findBySource(sourceId: number): Skill[];
   upsertMany(skills: UpsertSkillInput[]): void;

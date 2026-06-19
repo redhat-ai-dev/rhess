@@ -1,4 +1,4 @@
-import Fastify from "fastify";
+import Fastify, { type FastifyError } from "fastify";
 import fastifyStatic from "@fastify/static";
 import fastifyCors from "@fastify/cors";
 import { resolve, dirname } from "path";
@@ -6,6 +6,9 @@ import { fileURLToPath } from "url";
 import { initDatabase } from "./db/init.js";
 import type { Repositories } from "./db/init.js";
 import { loadExamplesIfEmpty } from "./ingestion/examples.js";
+import { FuseSearchProvider } from "./search/FuseSearchProvider.js";
+import skillsPlugin from "./routes/skills.js";
+import sourcesPlugin from "./routes/sources.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -55,7 +58,32 @@ export async function buildServer(repos?: Repositories) {
 
   const app = Fastify({ logger: true });
 
+  // 5.6 — Global error handler: all errors return {error: {code, message}}
+  app.setErrorHandler((err: FastifyError, _req, reply) => {
+    const status = err.statusCode ?? 500;
+    if (status < 500) {
+      const code = err.code === "FST_ERR_VALIDATION" ? "INVALID_PARAMS" : "BAD_REQUEST";
+      return reply.code(status).send({ error: { code, message: err.message } });
+    }
+    app.log.error(err);
+    return reply
+      .code(500)
+      .send({ error: { code: "INTERNAL_ERROR", message: "An internal error occurred." } });
+  });
+
   await app.register(fastifyCors, { origin: parseCorsOrigin() });
+
+  // 5.5 — Build Fuse.js search index from the current catalog
+  const searchProvider = new FuseSearchProvider();
+  const allSkills = db.skills.findAll({ perPage: 10000 });
+  searchProvider.buildIndex(
+    allSkills.map((s) => ({
+      sourceSlug: s.sourceSlug,
+      slug: s.slug,
+      name: s.name,
+      description: s.description,
+    }))
+  );
 
   app.get("/healthz", async () => ({ status: "ok" }));
 
@@ -68,6 +96,20 @@ export async function buildServer(repos?: Repositories) {
       app.log.error(err, "readyz: database unreachable");
       return reply.code(503).send({ status: "error", message: "database unavailable" });
     }
+  });
+
+  // 5.1–5.3 — Skills catalog read API
+  await app.register(skillsPlugin, {
+    prefix: "/api/v1/skills",
+    skills: db.skills,
+    search: searchProvider,
+  });
+
+  // 6.1–6.3 — Source management API
+  await app.register(sourcesPlugin, {
+    prefix: "/api/v1/sources",
+    repos: db,
+    searchProvider,
   });
 
   await app.register(fastifyStatic, {
@@ -84,8 +126,12 @@ export async function buildServer(repos?: Repositories) {
     return reply.code(404).send({ error: { code: "NOT_FOUND", message: "Not found" } });
   });
 
-  return app;
+  return { app, searchProvider };
 }
 
-const app = await buildServer();
-await app.listen({ port: PORT, host: "0.0.0.0" });
+// Only start the server when this file is the entry point (not imported as a module).
+import { pathToFileURL } from "url";
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  const { app } = await buildServer();
+  await app.listen({ port: PORT, host: "0.0.0.0" });
+}
