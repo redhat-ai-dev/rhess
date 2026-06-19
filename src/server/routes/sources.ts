@@ -1,7 +1,11 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import type { FastifyPluginAsync } from "fastify";
 import type { Repositories } from "../db/init.js";
 import type { SearchProvider } from "../search/types.js";
-import { ingestSource } from "../ingestion/ingest.js";
+import { clone } from "../ingestion/clone.js";
+import { ingestFromClonedPath, ingestSource } from "../ingestion/ingest.js";
 
 export interface SourcesRouteOptions {
   repos: Repositories;
@@ -58,24 +62,40 @@ const sourcesPlugin: FastifyPluginAsync<SourcesRouteOptions> = async (fastify, o
       });
     }
 
-    const source = repos.sources.create({ slug, url });
-
+    // Clone before writing anything to the DB so that a failure never
+    // leaves an orphaned source record (spec: "no source record is created").
+    const tmpDir = path.join(os.tmpdir(), `rhess-register-${Date.now()}`);
     try {
-      const syncReport = await ingestSource(source.id, source.slug, url, repos);
+      await clone(url, tmpDir);
+    } catch (err) {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+      const message = err instanceof Error ? err.message : String(err);
+      return reply.code(422).send({
+        error: { code: "CLONE_FAILED", message },
+      });
+    }
+
+    // Clone succeeded — create the source record and ingest.
+    const source = repos.sources.create({ slug, url });
+    try {
+      const syncReport = await ingestFromClonedPath(source.id, source.slug, tmpDir, repos);
       if (searchProvider) rebuildSearchIndex(repos, searchProvider);
       return reply.code(201).send({
         id: source.id,
         slug: source.slug,
         url: source.url,
-        createdAt: source.createdAt,
+        created_at: source.createdAt,
         syncReport,
       });
     } catch (err) {
+      // Ingestion itself failed — roll back the source record.
       repos.sources.delete(source.id);
       const message = err instanceof Error ? err.message : String(err);
       return reply.code(422).send({
         error: { code: "CLONE_FAILED", message },
       });
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
 
