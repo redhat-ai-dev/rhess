@@ -68,7 +68,10 @@ export function discoverSkills(repoPath: string): SkillCandidate[] {
           ? path.basename(discoveryAbsPath)
           : path.basename(skillDir);
 
-      // Collect supporting files (all other files in skillDir, relative paths)
+      // Collect supporting files (non-SKILL.md files in skillDir).
+      // Subdirectories that contain their own SKILL.md are separate skill roots
+      // and must be excluded entirely — their contents are not supporting files
+      // of this skill.
       const supportingFiles: string[] = [];
       try {
         const entries = fs.readdirSync(skillDir, { withFileTypes: true });
@@ -76,10 +79,17 @@ export function discoverSkills(repoPath: string): SkillCandidate[] {
           if (entry.isFile() && !isSkillMd(entry.name)) {
             supportingFiles.push(entry.name);
           } else if (entry.isDirectory()) {
-            // Include files in subdirectories too
-            const sub = walkAllFiles(path.join(skillDir, entry.name));
+            const subDir = path.join(skillDir, entry.name);
+            if (directoryContainsSkillMd(subDir)) {
+              // Separate skill root — skip entirely
+              continue;
+            }
+            const sub = walkAllFiles(subDir);
             for (const f of sub) {
-              supportingFiles.push(path.relative(skillDir, f));
+              // Defensively exclude any SKILL.md encountered deeper in the tree
+              if (!isSkillMd(path.basename(f))) {
+                supportingFiles.push(path.relative(skillDir, f));
+              }
             }
           }
         }
@@ -98,6 +108,17 @@ export function discoverSkills(repoPath: string): SkillCandidate[] {
   }
 
   return candidates;
+}
+
+/** Returns true if the directory directly contains a SKILL.md (case-insensitive). */
+function directoryContainsSkillMd(dir: string): boolean {
+  try {
+    return fs
+      .readdirSync(dir, { withFileTypes: true })
+      .some((e) => e.isFile() && isSkillMd(e.name));
+  } catch {
+    return false;
+  }
 }
 
 function walkAllFiles(dir: string): string[] {

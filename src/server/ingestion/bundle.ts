@@ -58,7 +58,10 @@ async function bundleArchive(candidate: SkillCandidate): Promise<BundleResult> {
 }
 
 function getAllRelativeFiles(candidate: SkillCandidate): string[] {
-  // Include SKILL.md itself plus all supporting files
+  // SKILL.md first, then supporting files sorted lexicographically.
+  // Sorting is done here (not in discover.ts) so digest determinism is
+  // enforced at the archiving boundary regardless of how the candidate was built.
   const skillMdRel = path.relative(candidate.skillDir, candidate.skillMdPath);
-  return [skillMdRel, ...candidate.supportingFiles];
+  const sorted = [...candidate.supportingFiles].sort();
+  return [skillMdRel, ...sorted];
 }
