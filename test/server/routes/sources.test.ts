@@ -95,7 +95,7 @@ describe("Source Management API", () => {
     expect(body.error.code).toBe("SLUG_CONFLICT");
   });
 
-  it("6.4.3 — clone failure → 422 CLONE_FAILED, no orphan source in DB", async () => {
+  it("6.4.3 — ingestion failure (clone fails) → 422 INGEST_FAILED, no orphan source in DB", async () => {
     const countBefore = repos.sources.findAll().length;
 
     const res = await app.inject({
@@ -110,9 +110,9 @@ describe("Source Management API", () => {
 
     expect(res.statusCode).toBe(422);
     const body = res.json();
-    expect(body.error.code).toBe("CLONE_FAILED");
+    expect(body.error.code).toBe("INGEST_FAILED");
 
-    // Source record must not exist — no orphan
+    // Source record must have been rolled back — no orphan
     expect(repos.sources.findAll().length).toBe(countBefore);
     expect(repos.sources.findBySlug("clone-fail-test")).toBeUndefined();
   });
