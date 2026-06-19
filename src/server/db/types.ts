@@ -56,6 +56,7 @@ export interface SkillRepository {
   upsertMany(skills: UpsertSkillInput[]): void;
   deleteBySource(sourceId: number): void;
   count(): number;
+  transaction<T>(fn: () => T): T;
 }
 
 export interface SourceRepository {

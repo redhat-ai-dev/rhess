@@ -131,4 +131,8 @@ export class SqliteSkillRepository implements SkillRepository {
   count(): number {
     return this.countStmt.get()!.n;
   }
+
+  transaction<T>(fn: () => T): T {
+    return this.db.transaction(fn)();
+  }
 }
