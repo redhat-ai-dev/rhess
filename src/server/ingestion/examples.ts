@@ -130,19 +130,22 @@ export async function loadExamplesIfEmpty(repos: Repositories): Promise<void> {
     return;
   }
 
-  const source = repos.sources.create({ slug: "examples", url: "built-in" });
-
-  repos.skills.upsertMany(
-    EXAMPLE_SKILLS.map((skill) => ({
-      sourceId: source.id,
-      sourceSlug: "examples",
-      slug: skill.slug,
-      name: skill.name,
-      description: skill.description,
-      artifactType: "skill-md" as const,
-      digest: sha256(skill.content),
-      content: skill.content,
-      supportingFiles: [],
-    }))
-  );
+  // Wrap both writes in a single transaction so a transient failure cannot
+  // leave a sources row with no skills (which would permanently suppress retry).
+  repos.skills.transactionSync(() => {
+    const source = repos.sources.create({ slug: "examples", url: "built-in" });
+    repos.skills.upsertMany(
+      EXAMPLE_SKILLS.map((skill) => ({
+        sourceId: source.id,
+        sourceSlug: "examples",
+        slug: skill.slug,
+        name: skill.name,
+        description: skill.description,
+        artifactType: "skill-md" as const,
+        digest: sha256(skill.content),
+        content: skill.content,
+        supportingFiles: [],
+      }))
+    );
+  });
 }

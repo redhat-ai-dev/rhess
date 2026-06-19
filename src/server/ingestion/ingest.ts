@@ -45,13 +45,21 @@ export async function ingestFromClonedPath(
   for (const candidate of candidates) {
     const relativePath = path.relative(repoPath, candidate.skillMdPath);
     try {
-      const content = fs.readFileSync(candidate.skillMdPath, "utf-8");
-      const fmResult = parseFrontmatter(content);
+      const bundleResult = await bundleSkill(candidate);
+
+      // For skill-md, the artifact IS the raw SKILL.md content — reuse it to
+      // avoid a second readFileSync. For archives the artifact is base64 tar.gz,
+      // so we read the file directly.
+      const skillMdContent =
+        bundleResult.artifactType === "skill-md"
+          ? bundleResult.artifact
+          : fs.readFileSync(candidate.skillMdPath, "utf-8");
+
+      const fmResult = parseFrontmatter(skillMdContent);
       if (!fmResult.ok) {
         failures.push({ path: relativePath, reason: fmResult.reason });
         continue;
       }
-      const bundleResult = await bundleSkill(candidate);
       indexed.push({
         slug: candidate.slug,
         name: fmResult.data.name,
@@ -102,7 +110,7 @@ export function atomicSwap(
     supportingFiles: s.supportingFiles,
   }));
 
-  repos.skills.transaction(() => {
+  repos.skills.transactionSync(() => {
     repos.skills.deleteBySource(sourceId);
     repos.skills.upsertMany(inputs);
   });
@@ -119,8 +127,8 @@ export async function ingestSource(
   repos: Repositories
 ): Promise<SyncReport> {
   const tmpDir = path.join(os.tmpdir(), `rhess-sync-${sourceId}-${Date.now()}`);
-  await clone(url, tmpDir);
   try {
+    await clone(url, tmpDir);
     return await ingestFromClonedPath(sourceId, sourceSlug, tmpDir, repos);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
