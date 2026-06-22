@@ -5,27 +5,37 @@ interface WellKnownOptions {
   skills: SkillRepository;
 }
 
-const wellKnownPlugin: FastifyPluginAsync<WellKnownOptions> = async (fastify, opts) => {
-  fastify.get(
-    "/agent-skills/index.json",
-    async (req: FastifyRequest, reply) => {
-      const host = req.headers["x-forwarded-host"] ?? req.headers["host"] ?? "localhost";
-      const proto = req.headers["x-forwarded-proto"] ?? req.protocol ?? "http";
-      const baseUrl = `${proto}://${host}`;
+/**
+ * Derive the server's public base URL.
+ *
+ * Priority:
+ *   1. PUBLIC_BASE_URL env var — the only trusted source for proxy deployments.
+ *      Must be set when RHESS sits behind a reverse proxy.
+ *   2. req.protocol + req.hostname — safe for direct (non-proxied) access.
+ *      Do NOT read X-Forwarded-* headers directly; they are client-controlled
+ *      without explicit Fastify trustProxy configuration.
+ */
+function resolveBaseUrl(req: FastifyRequest): string {
+  const configured = process.env["PUBLIC_BASE_URL"];
+  if (configured) return configured.replace(/\/+$/, "");
+  return `${req.protocol}://${req.hostname}`;
+}
 
-      const allSkills = opts.skills.findAllUnpaged();
-      return reply.send({
-        $schema: "https://agentskills.io/schema/v0.2.0/index.json",
-        skills: allSkills.map((s) => ({
-          name: s.name,
-          type: s.artifactType,
-          description: s.description,
-          url: `${baseUrl}/api/v1/skills/${s.sourceSlug}/${s.slug}/artifact`,
-          digest: `sha256:${s.digest}`,
-        })),
-      });
-    }
-  );
+const wellKnownPlugin: FastifyPluginAsync<WellKnownOptions> = async (fastify, opts) => {
+  fastify.get("/agent-skills/index.json", async (req: FastifyRequest, reply) => {
+    const baseUrl = resolveBaseUrl(req);
+    const entries = opts.skills.findAllDiscoveryEntries();
+    return reply.send({
+      $schema: "https://agentskills.io/schema/v0.2.0/index.json",
+      skills: entries.map((s) => ({
+        name: s.name,
+        type: s.artifactType,
+        description: s.description,
+        url: `${baseUrl}/api/v1/skills/${encodeURIComponent(s.sourceSlug)}/${encodeURIComponent(s.slug)}/artifact`,
+        digest: `sha256:${s.digest}`,
+      })),
+    });
+  });
 };
 
 export default wellKnownPlugin;

@@ -1,5 +1,5 @@
 import type Database from "better-sqlite3";
-import type { Skill, SkillRepository, UpsertSkillInput } from "./types.js";
+import type { Skill, SkillDiscoveryEntry, SkillRepository, UpsertSkillInput } from "./types.js";
 
 interface SkillRow {
   id: number;
@@ -89,6 +89,29 @@ export class SqliteSkillRepository implements SkillRepository {
       `SELECT * FROM skills ORDER BY ${orderBy}`
     );
     return stmt.all().map(toSkill);
+  }
+
+  findAllDiscoveryEntries(): SkillDiscoveryEntry[] {
+    interface DiscoveryRow {
+      source_slug: string;
+      slug: string;
+      name: string;
+      description: string;
+      artifact_type: Skill["artifactType"];
+      digest: string;
+    }
+    const stmt = this.db.prepare<[], DiscoveryRow>(
+      `SELECT source_slug, slug, name, description, artifact_type, digest
+       FROM skills ORDER BY name COLLATE NOCASE ASC`
+    );
+    return stmt.all().map((r) => ({
+      sourceSlug: r.source_slug,
+      slug: r.slug,
+      name: r.name,
+      description: r.description,
+      artifactType: r.artifact_type,
+      digest: r.digest,
+    }));
   }
 
   findAll(opts: { page?: number; perPage?: number; sort?: "name" | "createdAt" | "updatedAt" } = {}): Skill[] {
