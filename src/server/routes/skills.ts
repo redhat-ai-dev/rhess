@@ -138,6 +138,37 @@ const skillsPlugin: FastifyPluginAsync<SkillsRouteOptions> = async (fastify, opt
     }
   );
 
+  // Artifact download — registered before /:source/:slug (static suffix wins)
+  fastify.get(
+    "/:source/:slug/artifact",
+    async (
+      req: FastifyRequest<{ Params: { source: string; slug: string } }>,
+      reply: FastifyReply
+    ) => {
+      const { source, slug } = req.params;
+      const skill = skills.findBySourceAndSlug(source, slug);
+
+      if (!skill) {
+        return reply.code(404).send({
+          error: { code: "SKILL_NOT_FOUND", message: `Skill '${source}/${slug}' not found.` },
+        });
+      }
+
+      if (skill.artifactType === "skill-md") {
+        return reply
+          .header("Content-Type", "text/markdown; charset=utf-8")
+          .header("Content-Disposition", `inline; filename="SKILL.md"`)
+          .send(skill.content);
+      }
+
+      const buf = Buffer.from(skill.content, "base64");
+      return reply
+        .header("Content-Type", "application/gzip")
+        .header("Content-Disposition", `attachment; filename="${slug}.tar.gz"`)
+        .send(buf);
+    }
+  );
+
   // Skill detail (registered AFTER /search)
   fastify.get(
     "/:source/:slug",
