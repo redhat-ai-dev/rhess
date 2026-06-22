@@ -5,7 +5,7 @@ import { SqliteSourceRepository } from "../../../src/server/db/SqliteSourceRepos
 import { SqliteSkillRepository } from "../../../src/server/db/SqliteSkillRepository.js";
 import { FuseSearchProvider } from "../../../src/server/search/FuseSearchProvider.js";
 import skillsPlugin from "../../../src/server/routes/skills.js";
-import Fastify from "fastify";
+import Fastify, { type FastifyError } from "fastify";
 import type { FastifyInstance } from "fastify";
 
 function makeDb() {
@@ -25,15 +25,15 @@ async function buildTestServer() {
     sourceId: src.id,
     sourceSlug: "team-a",
     artifactType: "skill-md" as const,
-    digest: "sha256:abc",
+    digest: "abc",
     content: "# React Patterns\nContent here.",
     supportingFiles: [],
   };
 
   skills.upsertMany([
     { ...baseSkill, slug: "react-patterns", name: "React Patterns", description: "Best practices for React" },
-    { ...baseSkill, slug: "typescript-basics", name: "TypeScript Basics", description: "TypeScript fundamentals", digest: "sha256:def" },
-    { ...baseSkill, slug: "vue-components", name: "Vue Components", description: "Building Vue.js components", digest: "sha256:ghi" },
+    { ...baseSkill, slug: "typescript-basics", name: "TypeScript Basics", description: "TypeScript fundamentals", digest: "def" },
+    { ...baseSkill, slug: "vue-components", name: "Vue Components", description: "Building Vue.js components", digest: "ghi" },
   ]);
 
   const search = new FuseSearchProvider();
@@ -48,6 +48,19 @@ async function buildTestServer() {
   );
 
   const app = Fastify({ logger: false });
+
+  // Mirror the global error handler from src/server/index.ts so that
+  // AJV schema-validation errors are serialised as { error: { code, message } }
+  // (matching the 400 response schemas defined on each route).
+  app.setErrorHandler((err: FastifyError, _req, reply) => {
+    const status = err.statusCode ?? 500;
+    if (status < 500) {
+      const code = err.code === "FST_ERR_VALIDATION" ? "INVALID_PARAMS" : "BAD_REQUEST";
+      return reply.code(status).send({ error: { code, message: err.message } });
+    }
+    return reply.code(500).send({ error: { code: "INTERNAL_ERROR", message: "An internal error occurred." } });
+  });
+
   await app.register(skillsPlugin, { prefix: "/api/v1/skills", skills, search });
   await app.ready();
 
@@ -170,7 +183,8 @@ describe("GET /api/v1/skills/search", () => {
   it("returns 400 when q is missing", async () => {
     const res = await app.inject({ method: "GET", url: "/api/v1/skills/search" });
     expect(res.statusCode).toBe(400);
-    expect(res.json()).toMatchObject({ error: { code: "MISSING_QUERY" } });
+    // Schema validation fires before the handler when q is absent entirely.
+    expect(res.json()).toMatchObject({ error: { code: "INVALID_PARAMS" } });
   });
 
   it("returns 400 when q is empty", async () => {
