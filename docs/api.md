@@ -44,7 +44,7 @@ List all indexed skills (paginated).
       "source": "rhdh-skills",
       "slug": "update-base-image",
       "artifactType": "archive",
-      "digest": "sha256:abc123…"
+      "digest": "sha256:202703d18d473fcf735181213159f3f7efc4430ae4d0f1686dc40b2a5b62b783"
     }
   ],
   "meta": { "page": 1, "per_page": 20, "total": 42 }
@@ -105,7 +105,7 @@ Full skill detail including all files.
   "name": "update-base-image",
   "description": "…",
   "artifactType": "archive",
-  "digest": "sha256:abc123…",
+  "digest": "sha256:202703d18d473fcf735181213159f3f7efc4430ae4d0f1686dc40b2a5b62b783",
   "files": [
     { "path": "SKILL.md", "contents": "---\nname: …" },
     { "path": "scripts/run.sh", "contents": "#!/bin/bash …" }
@@ -158,19 +158,19 @@ Register a new skill source. Clones the repository, discovers all `SKILL.md` fil
   "slug": "my-skills",
   "url": "https://github.com/org/my-skills-repo",
   "created_at": "2026-06-19T14:32:00.000Z",
-  "syncReport": { "indexed": 12, "skipped": 0, "errors": 0 }
+  "syncReport": { "discovered": 12, "indexed": 12, "failed": 0, "failures": [] }
 }
 ```
 
 **Error codes**
 
-| Status | Code            | Meaning                        |
-|--------|-----------------|--------------------------------|
-| 400    | `INVALID_SLUG`  | Slug format violation          |
-| 400    | `INVALID_URL`   | URL missing or empty           |
-| 409    | `SLUG_CONFLICT` | Slug already registered        |
-| 422    | `CLONE_FAILED`  | Git clone failed               |
-| 422    | `INGEST_FAILED` | Clone succeeded, ingestion failed |
+| Status | Code            | Meaning                                          |
+|--------|-----------------|--------------------------------------------------|
+| 400    | `INVALID_SLUG`  | `slug` present but fails kebab-case format rules |
+| 400    | `INVALID_URL`   | `url` present but empty                          |
+| 409    | `SLUG_CONFLICT` | Slug already registered                          |
+| 422    | `CLONE_FAILED`  | Git clone failed                                 |
+| 422    | `INGEST_FAILED` | Clone succeeded, ingestion failed                |
 
 ---
 
@@ -195,7 +195,7 @@ Re-clone and re-index a source. Rejects with `409` if a sync is already in progr
 **Response `200`**
 
 ```json
-{ "indexed": 12, "skipped": 0, "errors": 0 }
+{ "discovered": 12, "indexed": 12, "failed": 0, "failures": [] }
 ```
 
 **Error codes**

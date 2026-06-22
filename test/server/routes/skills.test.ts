@@ -25,15 +25,15 @@ async function buildTestServer() {
     sourceId: src.id,
     sourceSlug: "team-a",
     artifactType: "skill-md" as const,
-    digest: "sha256:abc",
+    digest: "abc",
     content: "# React Patterns\nContent here.",
     supportingFiles: [],
   };
 
   skills.upsertMany([
     { ...baseSkill, slug: "react-patterns", name: "React Patterns", description: "Best practices for React" },
-    { ...baseSkill, slug: "typescript-basics", name: "TypeScript Basics", description: "TypeScript fundamentals", digest: "sha256:def" },
-    { ...baseSkill, slug: "vue-components", name: "Vue Components", description: "Building Vue.js components", digest: "sha256:ghi" },
+    { ...baseSkill, slug: "typescript-basics", name: "TypeScript Basics", description: "TypeScript fundamentals", digest: "def" },
+    { ...baseSkill, slug: "vue-components", name: "Vue Components", description: "Building Vue.js components", digest: "ghi" },
   ]);
 
   const search = new FuseSearchProvider();

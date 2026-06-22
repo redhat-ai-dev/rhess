@@ -46,9 +46,20 @@ const errorSchema = {
 const syncReportSchema = {
   type: "object",
   properties: {
-    indexed: { type: "integer" },
-    skipped: { type: "integer", nullable: true },
-    errors: { type: "integer", nullable: true },
+    discovered: { type: "integer", description: "Total SKILL.md files found in the repository" },
+    indexed: { type: "integer", description: "Skills successfully parsed and stored" },
+    failed: { type: "integer", description: "Skills that could not be parsed or bundled" },
+    failures: {
+      type: "array",
+      description: "Per-file failure details",
+      items: {
+        type: "object",
+        properties: {
+          path: { type: "string" },
+          reason: { type: "string" },
+        },
+      },
+    },
   },
 } as const;
 
@@ -63,7 +74,6 @@ const sourcesPlugin: FastifyPluginAsync<SourcesRouteOptions> = async (fastify, o
       description: "Clones the given git repository, discovers SKILL.md files, and indexes them. The clone must succeed before any record is written.",
       body: {
         type: "object",
-        required: ["slug", "url"],
         properties: {
           slug: { type: "string", description: "Kebab-case identifier (1–64 chars, no leading/trailing hyphens)" },
           url: { type: "string", description: "HTTPS or SSH git URL" },

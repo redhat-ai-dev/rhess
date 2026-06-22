@@ -226,7 +226,7 @@ const skillsPlugin: FastifyPluginAsync<SkillsRouteOptions> = async (fastify, opt
           source: s.sourceSlug,
           slug: s.slug,
           artifactType: s.artifactType,
-          digest: s.digest,
+          digest: `sha256:${s.digest}`,
         })),
         meta: { page: rawPage, per_page: rawPerPage, total },
       });
@@ -249,7 +249,13 @@ const skillsPlugin: FastifyPluginAsync<SkillsRouteOptions> = async (fastify, opt
             slug: { type: "string", description: "Skill slug" },
           },
         },
-        response: { 404: errorSchema },
+        response: {
+          200: {
+            description: "Raw artifact. Content-Type is `text/markdown; charset=utf-8` for skill-md or `application/gzip` for archive.",
+            type: "string",
+          },
+          404: errorSchema,
+        },
       },
     },
     async (
@@ -348,7 +354,7 @@ const skillsPlugin: FastifyPluginAsync<SkillsRouteOptions> = async (fastify, opt
         name: skill.name,
         description: skill.description,
         artifactType: skill.artifactType,
-        digest: skill.digest,
+        digest: `sha256:${skill.digest}`,
         files,
       });
     }
