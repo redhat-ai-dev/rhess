@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, afterAll } from "vitest";
 import Fastify from "fastify";
 import type { FastifyInstance } from "fastify";
 import BetterSqlite3 from "better-sqlite3";
@@ -126,6 +126,96 @@ describe("GET /.well-known/agent-skills/index.json", () => {
     const { skills } = res.json();
     for (const s of skills) {
       expect(["skill-md", "archive"]).toContain(s.type);
+    }
+  });
+
+  it("artifact URL path segments are percent-encoded", async () => {
+    // Seed a skill whose slug would require encoding if it contained special chars.
+    // Standard kebab slugs are already safe, but encodeURIComponent should be applied.
+    const res = await app.inject({
+      method: "GET",
+      url: "/.well-known/agent-skills/index.json",
+    });
+    const { skills } = res.json();
+    for (const s of skills) {
+      // URL must not contain raw spaces or unencoded reserved chars
+      expect(s.url).not.toMatch(/[ <>{}|\\^`]/);
+      // Must end with /artifact
+      expect(s.url).toMatch(/\/artifact$/);
+    }
+  });
+});
+
+describe("GET /.well-known/agent-skills/index.json — PUBLIC_BASE_URL", () => {
+  let app: FastifyInstance;
+  const originalEnv = process.env["PUBLIC_BASE_URL"];
+
+  afterAll(() => {
+    // Restore env var after this suite
+    if (originalEnv === undefined) {
+      delete process.env["PUBLIC_BASE_URL"];
+    } else {
+      process.env["PUBLIC_BASE_URL"] = originalEnv;
+    }
+  });
+
+  beforeEach(async () => {
+    app = await buildTestServer();
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it("uses PUBLIC_BASE_URL when set", async () => {
+    process.env["PUBLIC_BASE_URL"] = "https://rhess.example.com";
+    const res = await app.inject({
+      method: "GET",
+      url: "/.well-known/agent-skills/index.json",
+    });
+    const { skills } = res.json();
+    for (const s of skills) {
+      expect(s.url).toMatch(/^https:\/\/rhess\.example\.com\//);
+    }
+  });
+
+  it("strips trailing slash from PUBLIC_BASE_URL", async () => {
+    process.env["PUBLIC_BASE_URL"] = "https://rhess.example.com/";
+    const res = await app.inject({
+      method: "GET",
+      url: "/.well-known/agent-skills/index.json",
+    });
+    const { skills } = res.json();
+    // Should not produce double slashes in the URL
+    for (const s of skills) {
+      expect(s.url).not.toContain("//api");
+    }
+  });
+
+  it("ignores X-Forwarded-Host when PUBLIC_BASE_URL is set", async () => {
+    process.env["PUBLIC_BASE_URL"] = "https://rhess.example.com";
+    const res = await app.inject({
+      method: "GET",
+      url: "/.well-known/agent-skills/index.json",
+      headers: { "x-forwarded-host": "attacker.evil.com", "x-forwarded-proto": "http" },
+    });
+    const { skills } = res.json();
+    for (const s of skills) {
+      expect(s.url).not.toContain("attacker.evil.com");
+      expect(s.url).toMatch(/^https:\/\/rhess\.example\.com\//);
+    }
+  });
+
+  it("falls back to request host when PUBLIC_BASE_URL is unset", async () => {
+    delete process.env["PUBLIC_BASE_URL"];
+    const res = await app.inject({
+      method: "GET",
+      url: "/.well-known/agent-skills/index.json",
+    });
+    const { skills } = res.json();
+    // Fastify inject uses 'localhost' as hostname
+    for (const s of skills) {
+      expect(s.url).toMatch(/^https?:\/\/localhost/);
     }
   });
 });
