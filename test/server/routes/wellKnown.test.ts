@@ -211,11 +211,25 @@ describe("GET /.well-known/agent-skills/index.json — PUBLIC_BASE_URL", () => {
     const res = await app.inject({
       method: "GET",
       url: "/.well-known/agent-skills/index.json",
+      headers: { host: "localhost:3000" },
     });
     const { skills } = res.json();
-    // Fastify inject uses 'localhost' as hostname
+    // Port must be preserved — this is the regression this fix targets
     for (const s of skills) {
-      expect(s.url).toMatch(/^https?:\/\/localhost/);
+      expect(s.url).toMatch(/^https?:\/\/localhost:3000\//);
+    }
+  });
+
+  it("normalizes multi-value Host header by taking first value", async () => {
+    delete process.env["PUBLIC_BASE_URL"];
+    const res = await app.inject({
+      method: "GET",
+      url: "/.well-known/agent-skills/index.json",
+      headers: { host: "localhost:4000" },
+    });
+    const { skills } = res.json();
+    for (const s of skills) {
+      expect(s.url).toContain("localhost:4000");
     }
   });
 });

@@ -11,14 +11,22 @@ interface WellKnownOptions {
  * Priority:
  *   1. PUBLIC_BASE_URL env var — the only trusted source for proxy deployments.
  *      Must be set when RHESS sits behind a reverse proxy.
- *   2. req.protocol + req.hostname — safe for direct (non-proxied) access.
- *      Do NOT read X-Forwarded-* headers directly; they are client-controlled
- *      without explicit Fastify trustProxy configuration.
+ *   2. req.protocol + Host header — safe for direct (non-proxied) access.
+ *      req.hostname strips the port, so we use req.headers.host (e.g.
+ *      "localhost:3000") to preserve it. Do NOT read X-Forwarded-* headers
+ *      directly; they are client-controlled without trustProxy configuration.
  */
 function resolveBaseUrl(req: FastifyRequest): string {
   const configured = process.env["PUBLIC_BASE_URL"];
   if (configured) return configured.replace(/\/+$/, "");
-  return `${req.protocol}://${req.hostname}`;
+  // Host header is an HTTP/1.1 request requirement and comes from the actual
+  // TCP connection in direct deployments — more trustworthy than X-Forwarded-*
+  // but must be normalized: take first value if somehow multi-valued, strip
+  // any surrounding whitespace, and fall back to req.hostname (port-less) only
+  // as a last resort.
+  const raw = req.headers.host;
+  const host = (Array.isArray(raw) ? raw[0] : raw)?.trim() ?? req.hostname;
+  return `${req.protocol}://${host}`;
 }
 
 const wellKnownPlugin: FastifyPluginAsync<WellKnownOptions> = async (fastify, opts) => {
