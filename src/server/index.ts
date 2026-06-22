@@ -9,6 +9,7 @@ import { loadExamplesIfEmpty } from "./ingestion/examples.js";
 import { FuseSearchProvider } from "./search/FuseSearchProvider.js";
 import skillsPlugin from "./routes/skills.js";
 import sourcesPlugin from "./routes/sources.js";
+import wellKnownPlugin from "./routes/wellKnown.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -103,6 +104,12 @@ export async function buildServer(repos?: Repositories) {
     prefix: "/api/v1/skills",
     skills: db.skills,
     search: searchProvider,
+  });
+
+  // Well-known Agent Skills discovery index
+  await app.register(wellKnownPlugin, {
+    prefix: "/.well-known",
+    skills: db.skills,
   });
 
   // Source management API

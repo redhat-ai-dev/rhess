@@ -211,3 +211,30 @@ describe("GET /api/v1/skills/search", () => {
     expect(res.json()).toHaveProperty("data");
   });
 });
+
+describe("GET /api/v1/skills/:source/:slug/artifact", () => {
+  let app: FastifyInstance;
+
+  beforeEach(async () => {
+    ({ app } = await buildTestServer());
+  });
+
+  it("serves skill-md artifact as text/markdown", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/skills/team-a/react-patterns/artifact",
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["content-type"]).toContain("text/markdown");
+    expect(res.payload).toContain("React Patterns");
+  });
+
+  it("returns 404 for unknown skill", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/skills/team-a/no-such-skill/artifact",
+    });
+    expect(res.statusCode).toBe(404);
+    expect(res.json()).toMatchObject({ error: { code: "SKILL_NOT_FOUND" } });
+  });
+});

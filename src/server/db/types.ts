@@ -49,10 +49,22 @@ export interface UpsertSkillInput {
   supportingFiles: string[];
 }
 
+/** Metadata-only projection used by the well-known discovery index — no artifact content. */
+export interface SkillDiscoveryEntry {
+  sourceSlug: string;
+  slug: string;
+  name: string;
+  description: string;
+  artifactType: "skill-md" | "archive";
+  digest: string;
+}
+
 export interface SkillRepository {
   findAll(opts?: { page?: number; perPage?: number; sort?: "name" | "createdAt" | "updatedAt" }): Skill[];
   /** Return ALL skills without any pagination cap — use for search index builds. */
   findAllUnpaged(sort?: "name" | "createdAt" | "updatedAt"): Skill[];
+  /** Return metadata for all skills without loading artifact content — use for the well-known index. */
+  findAllDiscoveryEntries(): SkillDiscoveryEntry[];
   findBySourceAndSlug(sourceSlug: string, slug: string): Skill | undefined;
   findBySource(sourceId: number): Skill[];
   upsertMany(skills: UpsertSkillInput[]): void;
