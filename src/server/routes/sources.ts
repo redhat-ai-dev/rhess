@@ -32,11 +32,60 @@ function isValidSlug(slug: string): boolean {
   return slug.length >= 1 && slug.length <= 64 && SLUG_RE.test(slug);
 }
 
+const errorSchema = {
+  type: "object",
+  properties: {
+    error: {
+      type: "object",
+      properties: { code: { type: "string" }, message: { type: "string" } },
+      required: ["code", "message"],
+    },
+  },
+} as const;
+
+const syncReportSchema = {
+  type: "object",
+  properties: {
+    indexed: { type: "integer" },
+    skipped: { type: "integer", nullable: true },
+    errors: { type: "integer", nullable: true },
+  },
+} as const;
+
 const sourcesPlugin: FastifyPluginAsync<SourcesRouteOptions> = async (fastify, opts) => {
   const { repos, searchProvider } = opts;
 
   // POST /api/v1/sources
-  fastify.post("/", async (req, reply) => {
+  fastify.post("/", {
+    schema: {
+      tags: ["Sources"],
+      summary: "Register a skill source",
+      description: "Clones the given git repository, discovers SKILL.md files, and indexes them. The clone must succeed before any record is written.",
+      body: {
+        type: "object",
+        required: ["slug", "url"],
+        properties: {
+          slug: { type: "string", description: "Kebab-case identifier (1–64 chars, no leading/trailing hyphens)" },
+          url: { type: "string", description: "HTTPS or SSH git URL" },
+        },
+      },
+      response: {
+        201: {
+          type: "object",
+          properties: {
+            id: { type: "integer" },
+            slug: { type: "string" },
+            url: { type: "string" },
+            created_at: { type: "string", format: "date-time" },
+            syncReport: syncReportSchema,
+          },
+        },
+        400: errorSchema,
+        409: errorSchema,
+        422: errorSchema,
+      },
+    },
+  }, async (req, reply) => {
     const body = req.body as { url?: unknown; slug?: unknown };
     const url = typeof body.url === "string" ? body.url.trim() : null;
     const slug = typeof body.slug === "string" ? body.slug.trim() : null;
@@ -100,7 +149,23 @@ const sourcesPlugin: FastifyPluginAsync<SourcesRouteOptions> = async (fastify, o
   });
 
   // DELETE /api/v1/sources/:id
-  fastify.delete<{ Params: { id: string } }>("/:id", async (req, reply) => {
+  fastify.delete<{ Params: { id: string } }>("/:id", {
+    schema: {
+      tags: ["Sources"],
+      summary: "Delete a skill source",
+      description: "Removes the source record and all associated skills from the index.",
+      params: {
+        type: "object",
+        required: ["id"],
+        properties: { id: { type: "string", description: "Numeric source ID" } },
+      },
+      response: {
+        200: { type: "object", properties: { message: { type: "string" } } },
+        400: errorSchema,
+        404: errorSchema,
+      },
+    },
+  }, async (req, reply) => {
     const id = parseInt(req.params.id, 10);
     if (!Number.isFinite(id) || String(id) !== req.params.id) {
       return reply.code(400).send({
@@ -121,7 +186,25 @@ const sourcesPlugin: FastifyPluginAsync<SourcesRouteOptions> = async (fastify, o
   });
 
   // POST /api/v1/sources/:id/sync
-  fastify.post<{ Params: { id: string } }>("/:id/sync", async (req, reply) => {
+  fastify.post<{ Params: { id: string } }>("/:id/sync", {
+    schema: {
+      tags: ["Sources"],
+      summary: "Sync a skill source",
+      description: "Re-clones the repository and re-indexes all skills. Rejects with 409 if a sync is already in progress. Only one sync per source runs at a time (atomic guard).",
+      params: {
+        type: "object",
+        required: ["id"],
+        properties: { id: { type: "string", description: "Numeric source ID" } },
+      },
+      response: {
+        200: syncReportSchema,
+        400: errorSchema,
+        404: errorSchema,
+        409: errorSchema,
+        422: errorSchema,
+      },
+    },
+  }, async (req, reply) => {
     const id = parseInt(req.params.id, 10);
     if (!Number.isFinite(id) || String(id) !== req.params.id) {
       return reply.code(400).send({

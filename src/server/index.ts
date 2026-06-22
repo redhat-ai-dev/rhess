@@ -1,6 +1,8 @@
 import Fastify, { type FastifyError } from "fastify";
 import fastifyStatic from "@fastify/static";
 import fastifyCors from "@fastify/cors";
+import fastifySwagger from "@fastify/swagger";
+import fastifySwaggerUi from "@fastify/swagger-ui";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { initDatabase } from "./db/init.js";
@@ -35,7 +37,7 @@ function parseCorsOrigin(): string | string[] | boolean {
 }
 
 // Paths that must never fall through to the SPA — return a real 404 JSON.
-const NON_SPA_PREFIXES = ["/api/", "/.well-known/", "/healthz", "/readyz"];
+const NON_SPA_PREFIXES = ["/api/", "/.well-known/", "/healthz", "/readyz", "/documentation"];
 
 function isApiPath(url: string): boolean {
   return NON_SPA_PREFIXES.some((prefix) => url === prefix || url.startsWith(prefix));
@@ -74,6 +76,30 @@ export async function buildServer(repos?: Repositories) {
 
   await app.register(fastifyCors, { origin: parseCorsOrigin() });
 
+  await app.register(fastifySwagger, {
+    openapi: {
+      info: {
+        title: "RHESS — Red Hat Enterprise Skills Server",
+        description:
+          "Self-hosted AI agent skills directory. " +
+          "Skills Catalog and Discovery endpoints are unauthenticated. " +
+          "Source management (write) endpoints require `Authorization: Bearer <RHESS_ADMIN_TOKEN>`.",
+        version: "0.1.0",
+      },
+      tags: [
+        { name: "Skills", description: "Browse and search the skill catalog" },
+        { name: "Sources", description: "Manage skill sources (admin token required on write routes)" },
+        { name: "Discovery", description: "Agent Skills CLI discovery and artifact download" },
+        { name: "Ops", description: "Health and readiness probes" },
+      ],
+    },
+  });
+
+  await app.register(fastifySwaggerUi, {
+    routePrefix: "/documentation",
+    uiConfig: { docExpansion: "list", deepLinking: true },
+  });
+
   // Build Fuse.js search index from the current catalog
   const searchProvider = new FuseSearchProvider();
   searchProvider.buildIndex(
@@ -86,10 +112,27 @@ export async function buildServer(repos?: Repositories) {
     }))
   );
 
-  app.get("/healthz", async () => ({ status: "ok" }));
+  app.get("/healthz", {
+    schema: {
+      tags: ["Ops"],
+      summary: "Liveness probe",
+      description: "Always returns 200 while the process is running.",
+      response: { 200: { type: "object", properties: { status: { type: "string" } } } },
+    },
+  }, async () => ({ status: "ok" }));
 
   // Readiness probe: verify the DB is reachable.
-  app.get("/readyz", async (_req, reply) => {
+  app.get("/readyz", {
+    schema: {
+      tags: ["Ops"],
+      summary: "Readiness probe",
+      description: "Returns 200 when SQLite is reachable, 503 otherwise.",
+      response: {
+        200: { type: "object", properties: { status: { type: "string" } } },
+        503: { type: "object", properties: { status: { type: "string" }, message: { type: "string" } } },
+      },
+    },
+  }, async (_req, reply) => {
     try {
       db.skills.count();
       return { status: "ok" };
