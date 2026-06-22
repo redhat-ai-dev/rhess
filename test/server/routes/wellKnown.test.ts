@@ -213,7 +213,7 @@ describe("GET /.well-known/agent-skills/index.json — PUBLIC_BASE_URL", () => {
       url: "/.well-known/agent-skills/index.json",
     });
     const { skills } = res.json();
-    // Fastify inject uses 'localhost' as hostname
+    // Fastify inject uses 'localhost' (Host header may include port)
     for (const s of skills) {
       expect(s.url).toMatch(/^https?:\/\/localhost/);
     }
