@@ -19,7 +19,13 @@ interface WellKnownOptions {
 function resolveBaseUrl(req: FastifyRequest): string {
   const configured = process.env["PUBLIC_BASE_URL"];
   if (configured) return configured.replace(/\/+$/, "");
-  const host = req.headers.host ?? req.hostname;
+  // Host header is an HTTP/1.1 request requirement and comes from the actual
+  // TCP connection in direct deployments — more trustworthy than X-Forwarded-*
+  // but must be normalized: take first value if somehow multi-valued, strip
+  // any surrounding whitespace, and fall back to req.hostname (port-less) only
+  // as a last resort.
+  const raw = req.headers.host;
+  const host = (Array.isArray(raw) ? raw[0] : raw)?.trim() ?? req.hostname;
   return `${req.protocol}://${host}`;
 }
 
