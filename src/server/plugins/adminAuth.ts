@@ -16,7 +16,10 @@ import type { FastifyRequest, FastifyReply } from "fastify";
  */
 export function createAdminAuthHook(token: string) {
   return async function adminAuth(req: FastifyRequest, reply: FastifyReply) {
-    const authHeader = req.headers["authorization"];
+    // Normalize: Authorization header is technically string | string[] in Node.
+    // Take the first value if the header is somehow duplicated; treat empty as absent.
+    const raw = req.headers["authorization"];
+    const authHeader = (Array.isArray(raw) ? raw[0] : raw)?.trim() ?? "";
 
     if (!authHeader) {
       return reply.code(401).send({
@@ -25,10 +28,11 @@ export function createAdminAuthHook(token: string) {
     }
 
     const spaceIdx = authHeader.indexOf(" ");
-    const scheme = spaceIdx === -1 ? authHeader : authHeader.slice(0, spaceIdx);
+    // RFC 7235 §2.1: auth-scheme is case-insensitive.
+    const scheme = (spaceIdx === -1 ? authHeader : authHeader.slice(0, spaceIdx)).toLowerCase();
     const value = spaceIdx === -1 ? "" : authHeader.slice(spaceIdx + 1);
 
-    if (scheme !== "Bearer" || value !== token) {
+    if (scheme !== "bearer" || value !== token) {
       return reply.code(403).send({
         error: { code: "FORBIDDEN", message: "Invalid admin token" },
       });

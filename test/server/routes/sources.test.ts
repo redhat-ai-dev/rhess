@@ -302,13 +302,33 @@ describe("Admin token authentication", () => {
     expect(res.statusCode).toBe(422);
   });
 
-  it("3.4.8 — Bearer scheme is case-sensitive; 'bearer' (lowercase) → 403", async () => {
+  it("3.4.8 — Bearer scheme is case-insensitive; lowercase 'bearer' is accepted", async () => {
+    // RFC 7235 §2.1 specifies auth-scheme is case-insensitive.
     const res = await app.inject({
       method: "POST",
       url: "/api/v1/sources",
       headers: { "content-type": "application/json", authorization: `bearer ${TEST_TOKEN}` },
-      payload: { slug: "test", url: "https://example.com/repo.git" },
+      payload: { slug: "test-lc-bearer", url: "https://example.com/repo.git" },
+    });
+    // Clone mock always rejects → 422 means auth passed, not 401/403.
+    expect(res.statusCode).toBe(422);
+  });
+
+  it("3.4.9 — duplicated Authorization header: Fastify joins values → 403 (ambiguous auth rejected)", async () => {
+    // Fastify folds duplicate headers into a comma-separated string, so
+    // ["Bearer token", "Bearer other"] becomes "Bearer token, Bearer other",
+    // which fails the exact-token check.  Rejecting with 403 is the correct
+    // secure behaviour for an ambiguous Authorization header.
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/sources",
+      headers: {
+        "content-type": "application/json",
+        authorization: [`Bearer ${TEST_TOKEN}`, "Bearer other-value"],
+      },
+      payload: { slug: "test-multi-auth", url: "https://example.com/repo.git" },
     });
     expect(res.statusCode).toBe(403);
+    expect(res.json()).toMatchObject({ error: { code: "FORBIDDEN" } });
   });
 });

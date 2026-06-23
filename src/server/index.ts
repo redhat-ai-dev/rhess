@@ -19,8 +19,8 @@ const PORT = parseInt(process.env["PORT"] ?? "3000", 10);
 const UI_DIST = resolve(__dirname, "../../dist/ui");
 
 function requireAdminToken(): string {
-  const token = process.env["RHESS_ADMIN_TOKEN"];
-  if (!token || token.trim() === "") {
+  const token = process.env["RHESS_ADMIN_TOKEN"]?.trim();
+  if (!token) {
     process.stderr.write(
       "[RHESS] FATAL: RHESS_ADMIN_TOKEN is not set or empty. " +
         "Set this environment variable before starting the server.\n"
