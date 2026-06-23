@@ -56,9 +56,9 @@
 
 ## 7. Health & Readiness Probes
 
-- [ ] 7.1 Implement `GET /healthz` returning `{status: "ok"}` — always 200 while process is running
-- [ ] 7.2 Implement `GET /readyz` returning 200 when SQLite is reachable, 503 otherwise
-- [ ] 7.3 Write tests: healthy → 200, SQLite unreachable → readyz 503 / healthz still 200
+- [x] 7.1 Implement `GET /healthz` returning `{status: "ok"}` — always 200 while process is running
+- [x] 7.2 Implement `GET /readyz` returning 200 when SQLite is reachable, 503 otherwise
+- [x] 7.3 Write tests: healthy → 200, SQLite unreachable → readyz 503 / healthz still 200
 
 ## 8. Web Directory UI
 

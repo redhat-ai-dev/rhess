@@ -12,6 +12,7 @@ import { FuseSearchProvider } from "./search/FuseSearchProvider.js";
 import skillsPlugin from "./routes/skills.js";
 import sourcesPlugin from "./routes/sources.js";
 import wellKnownPlugin from "./routes/wellKnown.js";
+import probesPlugin from "./routes/probes.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -121,35 +122,8 @@ export async function buildServer(repos?: Repositories) {
     }))
   );
 
-  app.get("/healthz", {
-    schema: {
-      tags: ["Ops"],
-      summary: "Liveness probe",
-      description: "Always returns 200 while the process is running.",
-      response: { 200: { type: "object", properties: { status: { type: "string" } } } },
-    },
-  }, async () => ({ status: "ok" }));
-
-  // Readiness probe: verify the DB is reachable.
-  app.get("/readyz", {
-    schema: {
-      tags: ["Ops"],
-      summary: "Readiness probe",
-      description: "Returns 200 when SQLite is reachable, 503 otherwise.",
-      response: {
-        200: { type: "object", properties: { status: { type: "string" } } },
-        503: { type: "object", properties: { status: { type: "string" }, message: { type: "string" } } },
-      },
-    },
-  }, async (_req, reply) => {
-    try {
-      db.skills.count();
-      return { status: "ok" };
-    } catch (err) {
-      app.log.error(err, "readyz: database unreachable");
-      return reply.code(503).send({ status: "error", message: "database unavailable" });
-    }
-  });
+  // Health and readiness probes
+  await app.register(probesPlugin, { skills: db.skills });
 
   // Skills catalog read API
   await app.register(skillsPlugin, {
