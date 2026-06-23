@@ -20,10 +20,10 @@
 
 ## 3. Authentication Middleware
 
-- [ ] 3.1 Implement `adminAuth` Fastify plugin: reads `RHESS_ADMIN_TOKEN` env var at startup, exits with non-zero if missing or empty
-- [ ] 3.2 Middleware returns 401 on missing `Authorization` header, 403 on invalid token — never logs token value
-- [ ] 3.3 Apply `adminAuth` exclusively to write routes (`POST /api/v1/sources`, `DELETE /api/v1/sources/:id`, `POST /api/v1/sources/:id/sync`)
-- [ ] 3.4 Write unit tests: missing token → 401, wrong token → 403, valid token → passes, GET routes → no auth required
+- [x] 3.1 Implement `adminAuth` Fastify plugin: reads `RHESS_ADMIN_TOKEN` env var at startup, exits with non-zero if missing or empty
+- [x] 3.2 Middleware returns 401 on missing `Authorization` header, 403 on invalid token — never logs token value
+- [x] 3.3 Apply `adminAuth` exclusively to write routes (`POST /api/v1/sources`, `DELETE /api/v1/sources/:id`, `POST /api/v1/sources/:id/sync`)
+- [x] 3.4 Write unit tests: missing token → 401, wrong token → 403, valid token → passes, GET routes → no auth required
 
 ## 4. Skill Ingestion Engine
 
