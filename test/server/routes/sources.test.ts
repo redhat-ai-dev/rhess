@@ -23,10 +23,21 @@ function makeRepos(): Repositories {
   };
 }
 
+const TEST_TOKEN = "test-admin-token";
+
 async function buildTestServer(repos: Repositories): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
-  await app.register(sourcesPlugin, { prefix: "/api/v1/sources", repos });
+  await app.register(sourcesPlugin, {
+    prefix: "/api/v1/sources",
+    repos,
+    adminToken: TEST_TOKEN,
+  });
   return app;
+}
+
+/** Convenience: headers with a valid admin token */
+function authHeaders(extra?: Record<string, string>) {
+  return { authorization: `Bearer ${TEST_TOKEN}`, ...extra };
 }
 
 describe("Source Management API", () => {
@@ -50,7 +61,7 @@ describe("Source Management API", () => {
     const res = await app.inject({
       method: "POST",
       url: "/api/v1/sources",
-      headers: { "content-type": "application/json" },
+      headers: authHeaders({ "content-type": "application/json" }),
       payload: { url: "https://example.com/repo.git", slug: "INVALID SLUG!" },
     });
     expect(res.statusCode).toBe(400);
@@ -62,7 +73,7 @@ describe("Source Management API", () => {
     const res = await app.inject({
       method: "POST",
       url: "/api/v1/sources",
-      headers: { "content-type": "application/json" },
+      headers: authHeaders({ "content-type": "application/json" }),
       payload: { url: "https://example.com/repo.git", slug: "MySource" },
     });
     expect(res.statusCode).toBe(400);
@@ -74,7 +85,7 @@ describe("Source Management API", () => {
     const res = await app.inject({
       method: "POST",
       url: "/api/v1/sources",
-      headers: { "content-type": "application/json" },
+      headers: authHeaders({ "content-type": "application/json" }),
       payload: { url: "https://example.com/repo.git", slug: longSlug },
     });
     expect(res.statusCode).toBe(400);
@@ -87,7 +98,7 @@ describe("Source Management API", () => {
     const res = await app.inject({
       method: "POST",
       url: "/api/v1/sources",
-      headers: { "content-type": "application/json" },
+      headers: authHeaders({ "content-type": "application/json" }),
       payload: { url: "https://example.com/b", slug: "team-skills" },
     });
     expect(res.statusCode).toBe(409);
@@ -101,7 +112,7 @@ describe("Source Management API", () => {
     const res = await app.inject({
       method: "POST",
       url: "/api/v1/sources",
-      headers: { "content-type": "application/json" },
+      headers: authHeaders({ "content-type": "application/json" }),
       payload: {
         url: "https://example.com/repo.git",
         slug: "clone-fail-test",
@@ -125,6 +136,7 @@ describe("Source Management API", () => {
     const res = await app.inject({
       method: "DELETE",
       url: "/api/v1/sources/99999",
+      headers: authHeaders(),
     });
     expect(res.statusCode).toBe(404);
     expect(res.json().error.code).toBe("SOURCE_NOT_FOUND");
@@ -150,6 +162,7 @@ describe("Source Management API", () => {
     const res = await app.inject({
       method: "DELETE",
       url: `/api/v1/sources/${source.id}`,
+      headers: authHeaders(),
     });
     expect(res.statusCode).toBe(200);
     expect(res.json().message).toBe("Source deleted");
@@ -162,6 +175,7 @@ describe("Source Management API", () => {
     const res = await app.inject({
       method: "DELETE",
       url: "/api/v1/sources/not-a-number",
+      headers: authHeaders(),
     });
     expect(res.statusCode).toBe(400);
   });
@@ -174,6 +188,7 @@ describe("Source Management API", () => {
     const res = await app.inject({
       method: "POST",
       url: "/api/v1/sources/99999/sync",
+      headers: authHeaders(),
     });
     expect(res.statusCode).toBe(404);
     expect(res.json().error.code).toBe("SOURCE_NOT_FOUND");
@@ -188,6 +203,7 @@ describe("Source Management API", () => {
     const res = await app.inject({
       method: "POST",
       url: `/api/v1/sources/${source.id}/sync`,
+      headers: authHeaders(),
     });
     expect(res.statusCode).toBe(409);
     expect(res.json().error.code).toBe("SYNC_IN_PROGRESS");
@@ -197,7 +213,122 @@ describe("Source Management API", () => {
     const res = await app.inject({
       method: "POST",
       url: "/api/v1/sources/abc/sync",
+      headers: authHeaders(),
     });
     expect(res.statusCode).toBe(400);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Auth middleware (tasks 3.1–3.4)
+// ---------------------------------------------------------------------------
+
+describe("Admin token authentication", () => {
+  let repos: Repositories;
+  let app: FastifyInstance;
+
+  beforeEach(async () => {
+    repos = makeRepos();
+    app = await buildTestServer(repos);
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it("3.4.1 — POST /sources without Authorization → 401 UNAUTHORIZED", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/sources",
+      headers: { "content-type": "application/json" },
+      payload: { slug: "my-skills", url: "https://example.com/repo.git" },
+    });
+    expect(res.statusCode).toBe(401);
+    expect(res.json()).toMatchObject({ error: { code: "UNAUTHORIZED" } });
+  });
+
+  it("3.4.2 — POST /sources with wrong token → 403 FORBIDDEN", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/sources",
+      headers: { "content-type": "application/json", authorization: "Bearer wrong-token" },
+      payload: { slug: "my-skills", url: "https://example.com/repo.git" },
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).toMatchObject({ error: { code: "FORBIDDEN" } });
+  });
+
+  it("3.4.3 — DELETE /sources/:id without token → 401", async () => {
+    const res = await app.inject({ method: "DELETE", url: "/api/v1/sources/1" });
+    expect(res.statusCode).toBe(401);
+    expect(res.json()).toMatchObject({ error: { code: "UNAUTHORIZED" } });
+  });
+
+  it("3.4.4 — DELETE /sources/:id with wrong token → 403", async () => {
+    const res = await app.inject({
+      method: "DELETE",
+      url: "/api/v1/sources/1",
+      headers: { authorization: "Bearer bad" },
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).toMatchObject({ error: { code: "FORBIDDEN" } });
+  });
+
+  it("3.4.5 — POST /sources/:id/sync without token → 401", async () => {
+    const res = await app.inject({ method: "POST", url: "/api/v1/sources/1/sync" });
+    expect(res.statusCode).toBe(401);
+    expect(res.json()).toMatchObject({ error: { code: "UNAUTHORIZED" } });
+  });
+
+  it("3.4.6 — POST /sources/:id/sync with wrong token → 403", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/sources/1/sync",
+      headers: { authorization: "Bearer wrong" },
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).toMatchObject({ error: { code: "FORBIDDEN" } });
+  });
+
+  it("3.4.7 — valid token passes through to handler logic", async () => {
+    // The clone mock always rejects, so a valid token on POST /sources
+    // should reach the handler and return 422 (not 401/403).
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/sources",
+      headers: authHeaders({ "content-type": "application/json" }),
+      payload: { slug: "test-auth", url: "https://example.com/repo.git" },
+    });
+    expect(res.statusCode).toBe(422);
+  });
+
+  it("3.4.8 — Bearer scheme is case-insensitive; lowercase 'bearer' is accepted", async () => {
+    // RFC 7235 §2.1 specifies auth-scheme is case-insensitive.
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/sources",
+      headers: { "content-type": "application/json", authorization: `bearer ${TEST_TOKEN}` },
+      payload: { slug: "test-lc-bearer", url: "https://example.com/repo.git" },
+    });
+    // Clone mock always rejects → 422 means auth passed, not 401/403.
+    expect(res.statusCode).toBe(422);
+  });
+
+  it("3.4.9 — duplicated Authorization header: Fastify joins values → 403 (ambiguous auth rejected)", async () => {
+    // Fastify folds duplicate headers into a comma-separated string, so
+    // ["Bearer token", "Bearer other"] becomes "Bearer token, Bearer other",
+    // which fails the exact-token check.  Rejecting with 403 is the correct
+    // secure behaviour for an ambiguous Authorization header.
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/sources",
+      headers: {
+        "content-type": "application/json",
+        authorization: [`Bearer ${TEST_TOKEN}`, "Bearer other-value"],
+      },
+      payload: { slug: "test-multi-auth", url: "https://example.com/repo.git" },
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).toMatchObject({ error: { code: "FORBIDDEN" } });
   });
 });

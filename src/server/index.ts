@@ -19,8 +19,8 @@ const PORT = parseInt(process.env["PORT"] ?? "3000", 10);
 const UI_DIST = resolve(__dirname, "../../dist/ui");
 
 function requireAdminToken(): string {
-  const token = process.env["RHESS_ADMIN_TOKEN"];
-  if (!token || token.trim() === "") {
+  const token = process.env["RHESS_ADMIN_TOKEN"]?.trim();
+  if (!token) {
     process.stderr.write(
       "[RHESS] FATAL: RHESS_ADMIN_TOKEN is not set or empty. " +
         "Set this environment variable before starting the server.\n"
@@ -52,7 +52,7 @@ function isBrowserNavigation(req: { method: string; headers: Record<string, stri
 }
 
 export async function buildServer(repos?: Repositories) {
-  requireAdminToken();
+  const adminToken = requireAdminToken();
 
   const DB_PATH = process.env["DATABASE_PATH"] ?? "./rhess.db";
   const db = repos ?? initDatabase(DB_PATH);
@@ -92,6 +92,15 @@ export async function buildServer(repos?: Repositories) {
         { name: "Discovery", description: "Agent Skills CLI discovery and artifact download" },
         { name: "Ops", description: "Health and readiness probes" },
       ],
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: "http",
+            scheme: "bearer",
+            description: "Value of the RHESS_ADMIN_TOKEN environment variable",
+          },
+        },
+      },
     },
   });
 
@@ -160,6 +169,7 @@ export async function buildServer(repos?: Repositories) {
     prefix: "/api/v1/sources",
     repos: db,
     searchProvider,
+    adminToken,
   });
 
   await app.register(fastifyStatic, {

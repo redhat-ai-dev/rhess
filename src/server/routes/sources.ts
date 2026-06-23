@@ -4,12 +4,14 @@ import path from "node:path";
 import type { FastifyPluginAsync } from "fastify";
 import type { Repositories } from "../db/init.js";
 import type { SearchProvider } from "../search/types.js";
+import { createAdminAuthHook } from "../plugins/adminAuth.js";
 import { clone } from "../ingestion/clone.js";
 import { ingestFromClonedPath, ingestSource } from "../ingestion/ingest.js";
 
 export interface SourcesRouteOptions {
   repos: Repositories;
   searchProvider?: SearchProvider;
+  adminToken: string;
 }
 
 /** Rebuild the Fuse.js search index from all skills currently in DB. */
@@ -63,11 +65,17 @@ const syncReportSchema = {
   },
 } as const;
 
+const authSchema = {
+  security: [{ bearerAuth: [] }],
+} as const;
+
 const sourcesPlugin: FastifyPluginAsync<SourcesRouteOptions> = async (fastify, opts) => {
-  const { repos, searchProvider } = opts;
+  const { repos, searchProvider, adminToken } = opts;
+  const adminAuth = createAdminAuthHook(adminToken);
 
   // POST /api/v1/sources
   fastify.post("/", {
+    onRequest: adminAuth,
     schema: {
       tags: ["Sources"],
       summary: "Register a skill source",
@@ -79,6 +87,7 @@ const sourcesPlugin: FastifyPluginAsync<SourcesRouteOptions> = async (fastify, o
           url: { type: "string", description: "HTTPS or SSH git URL" },
         },
       },
+      ...authSchema,
       response: {
         201: {
           type: "object",
@@ -91,6 +100,8 @@ const sourcesPlugin: FastifyPluginAsync<SourcesRouteOptions> = async (fastify, o
           },
         },
         400: errorSchema,
+        401: errorSchema,
+        403: errorSchema,
         409: errorSchema,
         422: errorSchema,
       },
@@ -160,6 +171,7 @@ const sourcesPlugin: FastifyPluginAsync<SourcesRouteOptions> = async (fastify, o
 
   // DELETE /api/v1/sources/:id
   fastify.delete<{ Params: { id: string } }>("/:id", {
+    onRequest: adminAuth,
     schema: {
       tags: ["Sources"],
       summary: "Delete a skill source",
@@ -169,9 +181,12 @@ const sourcesPlugin: FastifyPluginAsync<SourcesRouteOptions> = async (fastify, o
         required: ["id"],
         properties: { id: { type: "string", description: "Numeric source ID" } },
       },
+      ...authSchema,
       response: {
         200: { type: "object", properties: { message: { type: "string" } } },
         400: errorSchema,
+        401: errorSchema,
+        403: errorSchema,
         404: errorSchema,
       },
     },
@@ -197,6 +212,7 @@ const sourcesPlugin: FastifyPluginAsync<SourcesRouteOptions> = async (fastify, o
 
   // POST /api/v1/sources/:id/sync
   fastify.post<{ Params: { id: string } }>("/:id/sync", {
+    onRequest: adminAuth,
     schema: {
       tags: ["Sources"],
       summary: "Sync a skill source",
@@ -206,9 +222,12 @@ const sourcesPlugin: FastifyPluginAsync<SourcesRouteOptions> = async (fastify, o
         required: ["id"],
         properties: { id: { type: "string", description: "Numeric source ID" } },
       },
+      ...authSchema,
       response: {
         200: syncReportSchema,
         400: errorSchema,
+        401: errorSchema,
+        403: errorSchema,
         404: errorSchema,
         409: errorSchema,
         422: errorSchema,
