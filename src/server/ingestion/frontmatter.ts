@@ -52,7 +52,9 @@ export function parseFrontmatter(content: string): FrontmatterResult {
   }
 
   // Full frontmatter map for storage — exclude name/description (already top-level DB fields)
-  const { name: _n, description: _d, ...rest } = fm;
+  const rest = Object.fromEntries(
+    Object.entries(fm).filter(([k]) => k !== 'name' && k !== 'description')
+  );
   const frontmatter: Record<string, unknown> = rest;
 
   return {

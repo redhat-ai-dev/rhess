@@ -7,7 +7,6 @@ import {
   MastheadContent,
   SkipToContent,
   Button,
-  Content,
   Flex,
   FlexItem,
   Tooltip,

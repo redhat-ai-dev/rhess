@@ -22,7 +22,7 @@ export function normalizeSourceUrl(url: string | null | undefined): string | nul
   return null;
 }
 
-import { getStaticDemoSourceUrl, STATIC_DEMO_SOURCE_URLS } from '../api/staticDemoSources';
+import { getStaticDemoSourceUrl } from '../api/staticDemoSources';
 
 type SourceLookup = { id: string; url?: string | null; path?: string | null; label?: string };
 

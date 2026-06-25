@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { FastifyPluginAsync, FastifyRequest } from "fastify";
+import type { FastifyPluginAsync } from "fastify";
 import type { Repositories } from "../db/init.js";
 import type { SearchProvider } from "../search/types.js";
 import type { Source } from "../db/types.js";

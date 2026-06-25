@@ -11,9 +11,6 @@ import {
   CardFooter,
   Button,
   SearchInput,
-  Toolbar,
-  ToolbarContent,
-  ToolbarItem,
   Badge,
   EmptyState,
   EmptyStateBody,
@@ -42,7 +39,6 @@ import { SearchIcon, CubeIcon, ThIcon, ThListIcon } from '@patternfly/react-icon
 import { ExternalLinkButton } from '@patternfly/react-component-groups';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getSkills, searchSkills } from '../../api/client';
-import { useTheme } from '../../hooks/useTheme';
 import type { Skill } from '../../api/types';
 import InstallCommand from '../../components/InstallCommand';
 import { categoryColor, formatSourcePath, resolveSkillSourceUrl } from '../../utils/category';
@@ -221,7 +217,6 @@ const SkillsTable: React.FC<SkillsTableProps> = ({ skills, sort, onSort }) => {
 type ViewMode = 'card' | 'table';
 
 const SkillsPage: React.FC = () => {
-  const { isDark } = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
   // Full catalog — all pages fetched on mount
   const [allSkills, setAllSkills] = useState<Skill[]>([]);
@@ -260,7 +255,7 @@ const SkillsPage: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => { loadSkills(); }, []); // eslint-disable-line
+  useEffect(() => { loadSkills(); }, []);  
 
   // Delegate search to the backend (Fuse.js fuzzy match) with a 300 ms debounce
   useEffect(() => {
@@ -305,7 +300,6 @@ const SkillsPage: React.FC = () => {
     });
 
   const totalFiltered = filteredSkills.length;
-  const totalPages = Math.ceil(totalFiltered / perPage);
   const pageSkills = filteredSkills.slice((page - 1) * perPage, page * perPage);
 
   const handleSearch = (val: string) => { setSearch(val); setPage(1); };

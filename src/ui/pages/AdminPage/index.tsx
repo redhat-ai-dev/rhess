@@ -42,7 +42,6 @@ import {
   SelectOption,
   SelectList,
   Card,
-  Checkbox,
   DataList,
   DataListItem,
   DataListItemRow,
@@ -83,7 +82,6 @@ import {
   addSource,
   updateSource,
   syncSource,
-  syncSkill,
   deleteSkill,
   getSources,
   deleteSource,
@@ -91,17 +89,10 @@ import {
   syncSources,
 } from '../../api/client';
 import type { Skill, SkillSource } from '../../api/types';
-import InstallCommand from '../../components/InstallCommand';
-import { categoryColor, formatSourcePath, normalizeSourceUrl, resolveSkillSourceUrl, resolveSourceUrl } from '../../utils/category';
+import { categoryColor, formatSourcePath, resolveSkillSourceUrl, resolveSourceUrl } from '../../utils/category';
 
 const SESSION_KEY = 'rhess_admin_token';
 const storage = localStorage;
-
-function buildSourceUrl(path: string): string | null {
-  if (path.startsWith('http://') || path.startsWith('https://')) return path;
-  if (/^[\w.-]+\/[\w.-]+$/.test(path)) return `https://github.com/${path}`;
-  return null;
-}
 
 interface Toast {
   id: number;
@@ -127,7 +118,6 @@ const AdminPage: React.FC = () => {
   const [totalSkillsCount, setTotalSkillsCount] = useState(0);
   const [totalSourcesCount, setTotalSourcesCount] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [syncingId, setSyncingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [sourceFilter, setSourceFilter] = useState<string | null>(null);
   const [sourceFilterOpen, setSourceFilterOpen] = useState(false);
@@ -135,7 +125,6 @@ const AdminPage: React.FC = () => {
   const [categoryFilterOpen, setCategoryFilterOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
-  const [bulkSyncing, setBulkSyncing] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [splitBulkOpen, setSplitBulkOpen] = useState(false);
 
@@ -213,11 +202,8 @@ const AdminPage: React.FC = () => {
     setAddError('');
   };
 
-  const goBackToRegisterUrl = () => {};
-
   // Edit source modal (per skill row)
   const [editTarget, setEditTarget] = useState<SkillSource | null>(null);
-  const [editSkillName, setEditSkillName] = useState('');
   const [editLabel, setEditLabel] = useState('');
   const [editPath, setEditPath] = useState('');
   const [editSaving, setEditSaving] = useState(false);
@@ -229,7 +215,6 @@ const AdminPage: React.FC = () => {
 
   // Sources tab — compound expansion + per-source actions + bulk
   const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
-  const [deletingSourceId, setDeletingSourceId] = useState<string | null>(null);
   const [syncingSourceId, setSyncingSourceId] = useState<string | null>(null);
   const [sourceSearch, setSourceSearch] = useState('');
   const [selectedSources, setSelectedSources] = useState<Set<string>>(new Set());
@@ -248,14 +233,13 @@ const AdminPage: React.FC = () => {
   const toggleSourceExpand = (id: string) =>
     setExpandedSources((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
 
   const openSourceEdit = (source: SkillSource) => {
     const sourceSkillIds = skills.filter((s) => s.sourceId === source.id).map((s) => s.id);
     setEditTarget(source);
-    setEditSkillName(source.label);
     setEditLabel(source.label);
     setEditPath(source.path);
     setEditSelectedSkillIds(new Set(sourceSkillIds));
@@ -276,22 +260,6 @@ const AdminPage: React.FC = () => {
     addToast('success', `Synced "${sourceDisplay}" ${skillSuffix}`);
     setSyncingSourceId(null);
     loadData(search);
-  };
-
-  const handleSourceDelete = async (source: SkillSource) => {
-    setDeletingSourceId(source.id);
-    try {
-      await deleteSource(token, source.id);
-      setSkills((prev) => prev.filter((s) => s.sourceId !== source.id));
-      setSources((prev) => prev.filter((s) => s.id !== source.id));
-      addToast('success', `Removed source "${source.label}"`);
-    } catch {
-      setSkills((prev) => prev.filter((s) => s.sourceId !== source.id));
-      setSources((prev) => prev.filter((s) => s.id !== source.id));
-      addToast('success', `Removed source "${source.label}"`);
-    } finally {
-      setDeletingSourceId(null);
-    }
   };
 
   const handleDeleteSource = async () => {
@@ -431,38 +399,14 @@ const AdminPage: React.FC = () => {
           });
         });
     }
-  }, []); // eslint-disable-line
+  }, []);  
 
   // Debounced search
   useEffect(() => {
     if (searchTimeout.current) clearTimeout(searchTimeout.current);
     searchTimeout.current = setTimeout(() => loadData(search), 300);
     return () => { if (searchTimeout.current) clearTimeout(searchTimeout.current); };
-  }, [search]); // eslint-disable-line
-
-  const handleRowSync = async (skill: Skill) => {
-    setSyncingId(skill.id);
-    try {
-      await syncSkill(token, skill.id);
-      addToast('success', `Synced "${skill.name}"`);
-      loadData(search);
-    } catch (err: unknown) {
-      addToast('danger', 'Sync failed', (err as Error).message);
-    } finally {
-      setSyncingId(null);
-    }
-  };
-
-  const openEdit = (skill: Skill) => {
-    const source = sources.find((s) => s.id === skill.sourceId);
-    if (!source) return;
-    const sourceSkillIds = skills.filter((s) => s.sourceId === source.id).map((s) => s.id);
-    setEditTarget(source);
-    setEditSkillName(skill.name);
-    setEditLabel(skill.name);
-    setEditPath(source.path);
-    setEditSelectedSkillIds(new Set(sourceSkillIds));
-  };
+  }, [search]);  
 
   const handleEditSave = async () => {
     if (!editTarget) return;
@@ -570,7 +514,7 @@ const AdminPage: React.FC = () => {
   const handleSelectRow = (id: string, checked: boolean) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      checked ? next.add(id) : next.delete(id);
+      if (checked) next.add(id); else next.delete(id);
       return next;
     });
   };
@@ -590,23 +534,6 @@ const AdminPage: React.FC = () => {
   const handleBulkSelectorCheck = (_checked: boolean) => {
     if (allSelected || someSelected) handleSelectNone();
     else handleSelectAll();
-  };
-
-  const handleBulkSync = async () => {
-    setBulkSyncing(true);
-    const syncAll = selected.size === 0;
-    try {
-      const sourceIds = syncAll
-        ? new Set(sources.map((s) => s.id))
-        : new Set(skills.filter((s) => selected.has(s.id)).map((s) => s.sourceId));
-      await Promise.all([...sourceIds].map((id) => syncSource(token, id)));
-      addToast('success', syncAll ? `Synced all sources` : `Synced ${selected.size} skill${selected.size !== 1 ? 's' : ''}`);
-      loadData(search);
-    } catch (err: unknown) {
-      addToast('danger', 'Sync failed', (err as Error).message);
-    } finally {
-      setBulkSyncing(false);
-    }
   };
 
   const handleBulkDelete = async () => {
@@ -1186,7 +1113,7 @@ const AdminPage: React.FC = () => {
                         <Td
                           select={{
                             rowIndex: rowIdx,
-                            onSelect: (_e, checked) => setSelectedSources((prev) => { const n = new Set(prev); checked ? n.add(source.id) : n.delete(source.id); return n; }),
+                            onSelect: (_e, checked) => setSelectedSources((prev) => { const n = new Set(prev); if (checked) n.add(source.id); else n.delete(source.id); return n; }),
                             isSelected: selectedSources.has(source.id),
                           }}
                           style={{ width: '40px', minWidth: '40px', paddingInline: 0, paddingBlock: '0.75rem', verticalAlign: 'middle' }}
@@ -1468,7 +1395,7 @@ const AdminPage: React.FC = () => {
                               <DataListCheck
                                 aria-labelledby={`edit-skill-label-${s.id}`}
                                 isChecked={editSelectedSkillIds.has(s.id)}
-                                onChange={() => setEditSelectedSkillIds((prev) => { const n = new Set(prev); n.has(s.id) ? n.delete(s.id) : n.add(s.id); return n; })}
+                                onChange={() => setEditSelectedSkillIds((prev) => { const n = new Set(prev); if (n.has(s.id)) n.delete(s.id); else n.add(s.id); return n; })}
                               />
                               <DataListItemCells dataListCells={[
                                 <DataListCell key="name">
