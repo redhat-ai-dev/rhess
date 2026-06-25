@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { extract } from "tar";
-import type { FastifyPluginAsync, FastifyReply } from "fastify";
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
 import type { Skill, Source } from "../db/types.js";
 import type { SearchProvider } from "../search/types.js";
 import type { Repositories } from "../db/init.js";

@@ -252,6 +252,12 @@ const sourcesPlugin: FastifyPluginAsync<SourcesRouteOptions> = async (fastify, o
     const body = req.body as { path?: unknown; label?: unknown };
     const url = typeof body.path === "string" ? body.path.trim() : source.url;
     const label = typeof body.label === "string" ? body.label.trim() : source.label;
+    if (typeof body.path === "string" && !url) {
+      return reply.code(400).send({ error: { code: "INVALID_URL", message: "path must not be empty" } });
+    }
+    if (typeof body.label === "string" && !label) {
+      return reply.code(400).send({ error: { code: "INVALID_LABEL", message: "label must not be empty" } });
+    }
     const updated = repos.sources.update({ id: source.id, label, url });
     if (!updated) {
       return reply.code(404).send({ error: { code: "SOURCE_NOT_FOUND", message: "Update failed" } });

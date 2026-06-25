@@ -16,7 +16,11 @@ import type { Skill, SkillDetail, SkillSource, PaginatedSkills } from './types';
 const BASE = '/api/v1';
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, options);
+  return requestRaw<T>(`${BASE}${path}`, options);
+}
+
+async function requestRaw<T>(url: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(url, options);
   if (!res.ok) {
     const body = await res.json().catch(() => null) as
       | { error?: { message?: string; code?: string } | string }
@@ -218,11 +222,10 @@ export async function deleteSkill(token: string, id: string): Promise<void> {
 export async function syncSources(
   token: string
 ): Promise<{ synced: boolean; count: number }> {
-  const res = await fetch('/api/sync', {
+  const data = await requestRaw<{ synced?: number; count?: number }>('/api/sync', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
   });
-  const data = await res.json() as { synced?: number; count?: number };
   return { synced: (data.synced ?? 0) > 0, count: data.count ?? 0 };
 }
 
