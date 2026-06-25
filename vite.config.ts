@@ -19,7 +19,8 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      "/api": "http://localhost:3000",
+      "/api/v1": "http://localhost:3000",
+      "/api/sync": "http://localhost:3000",
       "/.well-known": "http://localhost:3000",
       "/healthz": "http://localhost:3000",
       "/readyz": "http://localhost:3000",

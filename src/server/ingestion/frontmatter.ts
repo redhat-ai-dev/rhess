@@ -4,6 +4,8 @@ export interface ParsedFrontmatter {
   name: string;
   description: string;
   allowedTools: string[];
+  /** Full frontmatter map with name/description omitted — for storage and API exposure */
+  frontmatter: Record<string, unknown>;
   rawContent: string;
 }
 
@@ -49,12 +51,19 @@ export function parseFrontmatter(content: string): FrontmatterResult {
     allowedTools = rawAllowedTools.filter((t): t is string => typeof t === "string");
   }
 
+  // Full frontmatter map for storage — exclude name/description (already top-level DB fields)
+  const rest = Object.fromEntries(
+    Object.entries(fm).filter(([k]) => k !== 'name' && k !== 'description')
+  );
+  const frontmatter: Record<string, unknown> = rest;
+
   return {
     ok: true,
     data: {
       name: fm["name"],
       description: fm["description"],
       allowedTools,
+      frontmatter,
       rawContent: content,
     },
   };

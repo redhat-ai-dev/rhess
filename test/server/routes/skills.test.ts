@@ -19,7 +19,8 @@ async function buildTestServer() {
   const db = makeDb();
   const sources = new SqliteSourceRepository(db);
   const skills = new SqliteSkillRepository(db);
-  const src = sources.create({ slug: "team-a", url: "https://example.com/repo" });
+  const src = sources.create({ slug: "team-a", label: "team-a", url: "https://example.com/repo" });
+  const repos = { skills, sources };
 
   const baseSkill = {
     sourceId: src.id,
@@ -28,6 +29,10 @@ async function buildTestServer() {
     digest: "abc",
     content: "# React Patterns\nContent here.",
     supportingFiles: [],
+    allowedTools: [],
+    skillPath: 'skills/react-patterns/SKILL.md',
+    category: null,
+    frontmatter: {},
   };
 
   skills.upsertMany([
@@ -61,7 +66,7 @@ async function buildTestServer() {
     return reply.code(500).send({ error: { code: "INTERNAL_ERROR", message: "An internal error occurred." } });
   });
 
-  await app.register(skillsPlugin, { prefix: "/api/v1/skills", skills, search });
+  await app.register(skillsPlugin, { prefix: "/api/v1/skills", repos, search, adminToken: "test-token" });
   await app.ready();
 
   return { app, skills, sources };
@@ -79,13 +84,14 @@ describe("GET /api/v1/skills", () => {
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.data).toHaveLength(3);
-    expect(body.meta).toMatchObject({ page: 1, per_page: 20, total: 3 });
+    expect(body.meta).toMatchObject({ page: 1, per_page: 20, total: 3, total_pages: 1 });
     expect(body.data[0]).toHaveProperty("id");
     expect(body.data[0]).toHaveProperty("name");
     expect(body.data[0]).toHaveProperty("source");
     expect(body.data[0]).toHaveProperty("slug");
     expect(body.data[0]).toHaveProperty("artifactType");
-    expect(body.data[0]).toHaveProperty("digest");
+    expect(body.data[0]).toHaveProperty("installCommand");
+    expect(body.data[0]).toHaveProperty("allowedTools");
   });
 
   it("paginates correctly", async () => {
@@ -122,7 +128,6 @@ describe("GET /api/v1/skills", () => {
     expect(res.statusCode).toBe(400);
     expect(res.json()).toMatchObject({ error: { code: "INVALID_PARAMS" } });
   });
-
   it("returns 400 for page=0", async () => {
     const res = await app.inject({ method: "GET", url: "/api/v1/skills?page=0" });
     expect(res.statusCode).toBe(400);
@@ -154,7 +159,6 @@ describe("GET /api/v1/skills/:source/:slug", () => {
       name: "React Patterns",
       description: "Best practices for React",
       artifactType: "skill-md",
-      digest: "sha256:abc",
     });
     expect(body.files).toHaveLength(1);
     expect(body.files[0]).toMatchObject({ path: "SKILL.md", contents: expect.stringContaining("React Patterns") });
@@ -198,7 +202,6 @@ describe("GET /api/v1/skills/search", () => {
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.data.length).toBeGreaterThan(0);
-    expect(body.data[0]).toHaveProperty("score");
     expect(body.data[0]).toHaveProperty("source");
     expect(body.data[0]).toHaveProperty("slug");
     expect(body.data[0]).toHaveProperty("name");
@@ -223,6 +226,48 @@ describe("GET /api/v1/skills/search", () => {
     const res = await app.inject({ method: "GET", url: "/api/v1/skills/search?q=typescript" });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toHaveProperty("data");
+  });
+});
+
+describe("DELETE /api/v1/skills/:source/:slug", () => {
+  let app: FastifyInstance;
+
+  beforeEach(async () => {
+    ({ app } = await buildTestServer());
+  });
+
+  afterEach(async () => { await app.close(); });
+
+  it("removes an existing skill and returns ok", async () => {
+    const res = await app.inject({
+      method: "DELETE",
+      url: "/api/v1/skills/team-a/react-patterns",
+      headers: { authorization: "Bearer test-token" },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ ok: true });
+
+    // Confirm it's gone
+    const check = await app.inject({ method: "GET", url: "/api/v1/skills/team-a/react-patterns" });
+    expect(check.statusCode).toBe(404);
+  });
+
+  it("returns 404 for unknown skill", async () => {
+    const res = await app.inject({
+      method: "DELETE",
+      url: "/api/v1/skills/team-a/nonexistent",
+      headers: { authorization: "Bearer test-token" },
+    });
+    expect(res.statusCode).toBe(404);
+    expect(res.json()).toMatchObject({ error: { code: "SKILL_NOT_FOUND" } });
+  });
+
+  it("requires admin auth", async () => {
+    const res = await app.inject({
+      method: "DELETE",
+      url: "/api/v1/skills/team-a/react-patterns",
+    });
+    expect(res.statusCode).toBe(401);
   });
 });
 

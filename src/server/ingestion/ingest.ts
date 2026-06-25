@@ -7,9 +7,12 @@ import type { UpsertSkillInput } from "../db/types.js";
 
 export interface SkillIndexEntry {
   slug: string;
+  skillPath: string;
   name: string;
   description: string;
   allowedTools: string[];
+  frontmatter: Record<string, unknown>;
+  category: string | null;
   artifactType: "skill-md" | "archive";
   digest: string;
   content: string;
@@ -62,9 +65,13 @@ export async function ingestFromClonedPath(
       }
       indexed.push({
         slug: candidate.slug,
+        skillPath: relativePath,
         name: fmResult.data.name,
         description: fmResult.data.description,
         allowedTools: fmResult.data.allowedTools,
+        frontmatter: fmResult.data.frontmatter,
+        // category is always null until the Agent Skills spec exposes it
+        category: null,
         artifactType: bundleResult.artifactType,
         digest: bundleResult.digest,
         content: bundleResult.artifact,
@@ -102,8 +109,12 @@ export function atomicSwap(
     sourceId,
     sourceSlug,
     slug: s.slug,
+    skillPath: s.skillPath,
     name: s.name,
     description: s.description,
+    allowedTools: s.allowedTools,
+    frontmatter: s.frontmatter,
+    category: s.category,
     artifactType: s.artifactType,
     digest: s.digest,
     content: s.content,

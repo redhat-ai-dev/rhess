@@ -1,4 +1,4 @@
-import Fastify, { type FastifyError } from "fastify";
+import Fastify, { type FastifyError, type FastifyRequest, type FastifyReply } from "fastify";
 import fastifyStatic from "@fastify/static";
 import fastifyCors from "@fastify/cors";
 import fastifySwagger from "@fastify/swagger";
@@ -9,6 +9,8 @@ import { initDatabase } from "./db/init.js";
 import type { Repositories } from "./db/init.js";
 import { loadExamplesIfEmpty } from "./ingestion/examples.js";
 import { FuseSearchProvider } from "./search/FuseSearchProvider.js";
+import { createAdminAuthHook } from "./plugins/adminAuth.js";
+import { ingestSource } from "./ingestion/ingest.js";
 import skillsPlugin from "./routes/skills.js";
 import sourcesPlugin from "./routes/sources.js";
 import wellKnownPlugin from "./routes/wellKnown.js";
@@ -128,8 +130,9 @@ export async function buildServer(repos?: Repositories) {
   // Skills catalog read API
   await app.register(skillsPlugin, {
     prefix: "/api/v1/skills",
-    skills: db.skills,
+    repos: db,
     search: searchProvider,
+    adminToken,
   });
 
   // Well-known Agent Skills discovery index
@@ -144,6 +147,35 @@ export async function buildServer(repos?: Repositories) {
     repos: db,
     searchProvider,
     adminToken,
+  });
+
+  // Global bulk sync — re-syncs every registered source sequentially
+  const adminAuth = createAdminAuthHook(adminToken);
+  app.post("/api/sync", { onRequest: adminAuth }, async (_req: FastifyRequest, reply: FastifyReply) => {
+    const allSources = db.sources.findAll();
+    let synced = 0;
+    for (const source of allSources) {
+      const locked = db.sources.trySetSyncing(source.id);
+      if (!locked) continue;
+      try {
+        await ingestSource(source.id, source.slug, source.url, db);
+        db.sources.updateSync({ id: source.id, status: "idle", error: null });
+        synced++;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        db.sources.updateSync({ id: source.id, status: "error", error: message });
+      }
+    }
+    searchProvider.buildIndex(
+      db.skills.findAllUnpaged().map((s) => ({
+        id: s.id,
+        sourceSlug: s.sourceSlug,
+        slug: s.slug,
+        name: s.name,
+        description: s.description,
+      }))
+    );
+    return reply.send({ synced, count: db.skills.count() });
   });
 
   await app.register(fastifyStatic, {
