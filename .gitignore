@@ -8,3 +8,8 @@ dist/
 .DS_Store
 *.log
 tmp/
+.vscode/
+.idea/
+.npm/
+*.swo
+*.tsbuildinfo
