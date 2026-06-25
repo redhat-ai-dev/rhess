@@ -85,6 +85,20 @@ const syncReportSchema = {
 
 const authSchema = { security: [{ bearerAuth: [] }] } as const;
 
+/** Shape returned by sourceToResponse() — used across sources endpoints. */
+const sourceSchema = {
+  type: "object",
+  properties: {
+    id: { type: "string", description: "Source slug (used as public identifier)" },
+    path: { type: "string", description: "Git repository URL (alias for url)" },
+    label: { type: "string", description: "Human-readable display name" },
+    url: { type: "string", description: "Git repository URL" },
+    lastSynced: { type: "string", nullable: true, description: "ISO 8601 timestamp of last successful sync" },
+    skillCount: { type: "integer", description: "Number of indexed skills from this source" },
+    status: { type: "string", enum: ["idle", "syncing", "error"], description: "Current sync status" },
+  },
+} as const;
+
 const sourcesPlugin: FastifyPluginAsync<SourcesRouteOptions> = async (fastify, opts) => {
   const { repos, searchProvider, adminToken } = opts;
   const adminAuth = createAdminAuthHook(adminToken);
@@ -95,26 +109,13 @@ const sourcesPlugin: FastifyPluginAsync<SourcesRouteOptions> = async (fastify, o
       tags: ["Sources"],
       summary: "List skill sources",
       description: "Returns all registered skill sources with their skill counts and sync status.",
-      response: {
+        response: {
         200: {
           type: "object",
           properties: {
-            sources: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  id: { type: "string" },
-                  path: { type: "string" },
-                  label: { type: "string" },
-                  url: { type: "string" },
-                  lastSynced: { type: "string", nullable: true },
-                  skillCount: { type: "integer" },
-                  status: { type: "string" },
-                },
-              },
-            },
+            sources: { type: "array", items: sourceSchema },
           },
+          required: ["sources"],
         },
       },
     },
@@ -137,10 +138,10 @@ const sourcesPlugin: FastifyPluginAsync<SourcesRouteOptions> = async (fastify, o
       body: {
         type: "object",
         properties: {
-          path: { type: "string", description: "HTTPS or SSH git URL" },
-          label: { type: "string", description: "Display name for the source" },
+          path: { type: "string", description: "HTTPS or SSH git URL (required if url is not supplied)" },
+          label: { type: "string", description: "Display name; derived from URL if omitted" },
           url: { type: "string", description: "Legacy alias for path" },
-          slug: { type: "string", description: "Legacy explicit slug" },
+          slug: { type: "string", description: "Legacy explicit slug; derived from label/path if omitted" },
         },
       },
       ...authSchema,
@@ -148,9 +149,10 @@ const sourcesPlugin: FastifyPluginAsync<SourcesRouteOptions> = async (fastify, o
         201: {
           type: "object",
           properties: {
-            source: { type: "object", additionalProperties: true },
+            source: sourceSchema,
             syncReport: syncReportSchema,
           },
+          required: ["source", "syncReport"],
         },
         400: errorSchema,
         401: errorSchema,
@@ -235,7 +237,11 @@ const sourcesPlugin: FastifyPluginAsync<SourcesRouteOptions> = async (fastify, o
       },
       ...authSchema,
       response: {
-        200: { type: "object", properties: { source: { type: "object", additionalProperties: true } } },
+        200: {
+          type: "object",
+          properties: { source: sourceSchema },
+          required: ["source"],
+        },
         400: errorSchema,
         401: errorSchema,
         403: errorSchema,

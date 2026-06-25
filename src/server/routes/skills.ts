@@ -105,6 +105,29 @@ const errorSchema = {
   },
 } as const;
 
+/** Shape returned by skillToResponse() — used in list, search, and detail. */
+const skillSchema = {
+  type: "object",
+  properties: {
+    id: { type: "integer", description: "Internal numeric skill ID" },
+    source: { type: "string", description: "Source slug" },
+    sourceLabel: { type: "string", description: "Human-readable source label" },
+    sourceUrl: { type: "string", nullable: true, description: "Source git repository URL" },
+    slug: { type: "string", description: "Skill slug within its source" },
+    name: { type: "string", description: "Skill display name from frontmatter" },
+    description: { type: "string", description: "Skill description from frontmatter" },
+    artifactType: { type: "string", enum: ["skill-md", "archive"], description: "Artifact type" },
+    digest: { type: "string", description: "SHA-256 content digest prefixed with 'sha256:'" },
+    category: { type: "string", nullable: true, description: "Skill category (null until spec support is added)" },
+    allowedTools: { type: "array", items: { type: "string" }, description: "Tools the skill is allowed to use" },
+    skillPath: { type: "string", description: "Relative path to SKILL.md within the source repository" },
+    frontmatter: { type: "object", additionalProperties: true, description: "Full parsed frontmatter map (excluding name/description)" },
+    installCommand: { type: "string", description: "npx skills add … command to install this skill" },
+    lastModified: { type: "string", description: "ISO 8601 timestamp of last update" },
+  },
+  required: ["id", "source", "slug", "name", "description", "artifactType", "digest", "allowedTools", "skillPath", "installCommand", "lastModified"],
+} as const;
+
 /** Rebuild the Fuse.js search index from all skills currently in DB. */
 function rebuildSearchIndex(repos: Repositories, searchProvider: SearchProvider): void {
   searchProvider.buildIndex(
@@ -142,10 +165,11 @@ const skillsPlugin: FastifyPluginAsync<SkillsRouteOptions> = async (fastify, opt
           200: {
             type: "object",
             properties: {
-              data: { type: "array", items: { type: "object", additionalProperties: true } },
-              total: { type: "integer" },
-              query: { type: "string" },
+              data: { type: "array", items: skillSchema },
+              total: { type: "integer", description: "Total number of matching skills" },
+              query: { type: "string", description: "The search query that was executed" },
             },
+            required: ["data", "total", "query"],
           },
           400: errorSchema,
         },
@@ -195,18 +219,20 @@ const skillsPlugin: FastifyPluginAsync<SkillsRouteOptions> = async (fastify, opt
           200: {
             type: "object",
             properties: {
-              data: { type: "array", items: { type: "object", additionalProperties: true } },
+              data: { type: "array", items: skillSchema },
               meta: {
                 type: "object",
                 properties: {
-                  total: { type: "integer" },
-                  page: { type: "integer" },
-                  per_page: { type: "integer" },
-                  total_pages: { type: "integer" },
-                  sort: { type: "string" },
+                  total: { type: "integer", description: "Total number of indexed skills" },
+                  page: { type: "integer", description: "Current page number (1-based)" },
+                  per_page: { type: "integer", description: "Results per page" },
+                  total_pages: { type: "integer", description: "Total number of pages" },
+                  sort: { type: "string", description: "Active sort field" },
                 },
+                required: ["total", "page", "per_page", "total_pages", "sort"],
               },
             },
+            required: ["data", "meta"],
           },
           400: errorSchema,
         },
@@ -320,10 +346,13 @@ const skillsPlugin: FastifyPluginAsync<SkillsRouteOptions> = async (fastify, opt
             type: "object",
             properties: {
               synced: { type: "boolean" },
-              skillId: { type: "string" },
-              lastSynced: { type: "string" },
+              skillId: { type: "string", description: "Composite 'source/slug' identifier" },
+              lastSynced: { type: "string", description: "ISO 8601 timestamp of the completed sync" },
             },
+            required: ["synced", "skillId", "lastSynced"],
           },
+          401: errorSchema,
+          403: errorSchema,
           404: errorSchema,
           409: errorSchema,
           422: errorSchema,
@@ -386,7 +415,13 @@ const skillsPlugin: FastifyPluginAsync<SkillsRouteOptions> = async (fastify, opt
         },
         security: [{ bearerAuth: [] }],
         response: {
-          200: { type: "object", properties: { ok: { type: "boolean" } } },
+          200: {
+            type: "object",
+            properties: { ok: { type: "boolean" } },
+            required: ["ok"],
+          },
+          401: errorSchema,
+          403: errorSchema,
           404: errorSchema,
         },
       },
@@ -422,7 +457,30 @@ const skillsPlugin: FastifyPluginAsync<SkillsRouteOptions> = async (fastify, opt
           },
         },
         response: {
-          200: { type: "object", additionalProperties: true },
+          200: {
+            allOf: [
+              skillSchema,
+              {
+                type: "object",
+                properties: {
+                  content: { type: "string", description: "Raw SKILL.md text (skill-md) or first file contents (archive)" },
+                  files: {
+                    type: "array",
+                    description: "All files in the skill artifact, SKILL.md sorted first",
+                    items: {
+                      type: "object",
+                      properties: {
+                        path: { type: "string" },
+                        contents: { type: "string" },
+                      },
+                      required: ["path", "contents"],
+                    },
+                  },
+                },
+                required: ["content", "files"],
+              },
+            ],
+          },
           404: errorSchema,
         },
       },
