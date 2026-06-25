@@ -151,7 +151,33 @@ export async function buildServer(repos?: Repositories) {
 
   // Global bulk sync — re-syncs every registered source sequentially
   const adminAuth = createAdminAuthHook(adminToken);
-  app.post("/api/sync", { onRequest: adminAuth }, async (_req: FastifyRequest, reply: FastifyReply) => {
+  app.post("/api/sync", {
+    onRequest: adminAuth,
+    schema: {
+      tags: ["Sources"],
+      summary: "Re-sync all sources",
+      description: "Re-clones and re-indexes every registered source sequentially. Sources already being synced are skipped. Rebuilds the search index when complete.",
+      security: [{ bearerAuth: [] }],
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            synced: { type: "integer", description: "Number of sources successfully re-synced" },
+            count: { type: "integer", description: "Total number of indexed skills after the sync" },
+          },
+          required: ["synced", "count"],
+        },
+        401: {
+          type: "object",
+          properties: { error: { type: "object", properties: { code: { type: "string" }, message: { type: "string" } }, required: ["code", "message"] } },
+        },
+        403: {
+          type: "object",
+          properties: { error: { type: "object", properties: { code: { type: "string" }, message: { type: "string" } }, required: ["code", "message"] } },
+        },
+      },
+    },
+  }, async (_req: FastifyRequest, reply: FastifyReply) => {
     const allSources = db.sources.findAll();
     let synced = 0;
     for (const source of allSources) {
