@@ -1,0 +1,25 @@
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ── Glass mode ─────────────────────────────────────────────────────────── */
+
+/* Strip backgrounds from page shells so the background image shows through.
+   All card blur/opacity/border/shadow is handled by PF's built-in glass tokens. */
+:root:where(.pf-v6-theme-glass) .pf-v6-c-page,
+:root:where(.pf-v6-theme-glass) .pf-v6-c-page__main,
+:root:where(.pf-v6-theme-glass) .pf-v6-c-page__main-container,
+:root:where(.pf-v6-theme-glass) .pf-v6-c-page__main-section,
+:root:where(.pf-v6-theme-glass) .pf-v6-c-page__main-section.pf-m-secondary,
+:root:where(.pf-v6-theme-glass) .pf-v6-c-toolbar,
+:root:where(.pf-v6-theme-glass) .pf-v6-c-toolbar__content {
+  background: transparent !important;
+  backdrop-filter: none !important;
+}
+
+/* Safari prefix — PF only ships the unprefixed property */
+:where(.pf-v6-theme-glass) .pf-v6-c-card.pf-m-glass,
+:where(.pf-v6-theme-glass) .pf-v6-c-masthead:not(.pf-m-docked) {
+  -webkit-backdrop-filter: var(--pf-t--global--background--filter--glass--blur--primary, blur(16px));
+}

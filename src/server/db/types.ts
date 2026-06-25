@@ -1,6 +1,7 @@
 export interface Source {
   id: number;
   slug: string;
+  label: string;
   url: string;
   createdAt: string;
   lastSyncedAt: string | null;
@@ -22,12 +23,21 @@ export interface Skill {
   content: string;
   /** Paths of supporting files relative to the skill root */
   supportingFiles: string[];
+  /** Parsed allowed-tools list from frontmatter */
+  allowedTools: string[];
+  /** Relative path of SKILL.md within the repository */
+  skillPath: string;
+  /** Category/topic — null until the Agent Skills spec exposes it */
+  category: string | null;
+  /** Full parsed frontmatter as a plain object (name/description excluded) */
+  frontmatter: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateSourceInput {
   slug: string;
+  label: string;
   url: string;
 }
 
@@ -35,6 +45,12 @@ export interface UpdateSourceSyncInput {
   id: number;
   status: Source["syncStatus"];
   error?: string | null;
+}
+
+export interface UpdateSourceInput {
+  id: number;
+  label: string;
+  url: string;
 }
 
 export interface UpsertSkillInput {
@@ -47,6 +63,10 @@ export interface UpsertSkillInput {
   digest: string;
   content: string;
   supportingFiles: string[];
+  allowedTools: string[];
+  skillPath: string;
+  category: string | null;
+  frontmatter: Record<string, unknown>;
 }
 
 /** Metadata-only projection used by the well-known discovery index — no artifact content. */
@@ -67,8 +87,10 @@ export interface SkillRepository {
   findAllDiscoveryEntries(): SkillDiscoveryEntry[];
   findBySourceAndSlug(sourceSlug: string, slug: string): Skill | undefined;
   findBySource(sourceId: number): Skill[];
+  countBySourceId(sourceId: number): number;
   upsertMany(skills: UpsertSkillInput[]): void;
   deleteBySource(sourceId: number): void;
+  deleteBySourceAndSlug(sourceSlug: string, slug: string): void;
   count(): number;
   /** Runs fn inside a single SQLite transaction. Callback MUST be synchronous — do not await inside. */
   transactionSync<T>(fn: () => T): T;
@@ -79,6 +101,7 @@ export interface SourceRepository {
   findById(id: number): Source | undefined;
   findBySlug(slug: string): Source | undefined;
   create(input: CreateSourceInput): Source;
+  update(input: UpdateSourceInput): Source | undefined;
   updateSync(input: UpdateSourceSyncInput): void;
   /**
    * Atomically set sync_status to 'syncing' only when currently idle/error.

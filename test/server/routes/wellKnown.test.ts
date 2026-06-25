@@ -13,7 +13,7 @@ function makeRepos() {
   runMigrations(db);
   const sources = new SqliteSourceRepository(db);
   const skills = new SqliteSkillRepository(db);
-  const src = sources.create({ slug: "team-a", url: "https://example.com/repo" });
+  const src = sources.create({ slug: "team-a", label: "team-a", url: "https://example.com/repo" });
   skills.upsertMany([
     {
       sourceId: src.id,
@@ -25,6 +25,10 @@ function makeRepos() {
       digest: "abc123",
       content: "# React Patterns\nContent.",
       supportingFiles: [],
+      allowedTools: [],
+      skillPath: "skills/react-patterns/SKILL.md",
+      category: null,
+      frontmatter: {},
     },
     {
       sourceId: src.id,
@@ -36,6 +40,10 @@ function makeRepos() {
       digest: "def456",
       content: "# TS Utils\nContent.",
       supportingFiles: [],
+      allowedTools: [],
+      skillPath: "skills/ts-utils/SKILL.md",
+      category: null,
+      frontmatter: {},
     },
   ]);
   return skills;

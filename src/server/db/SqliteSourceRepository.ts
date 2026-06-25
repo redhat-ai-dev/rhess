@@ -3,12 +3,14 @@ import type {
   Source,
   SourceRepository,
   CreateSourceInput,
+  UpdateSourceInput,
   UpdateSourceSyncInput,
 } from "./types.js";
 
 interface SourceRow {
   id: number;
   slug: string;
+  label: string;
   url: string;
   created_at: string;
   last_synced_at: string | null;
@@ -20,6 +22,7 @@ function toSource(row: SourceRow): Source {
   return {
     id: row.id,
     slug: row.slug,
+    label: row.label ?? row.slug,
     url: row.url,
     createdAt: row.created_at,
     lastSyncedAt: row.last_synced_at,
@@ -32,7 +35,8 @@ export class SqliteSourceRepository implements SourceRepository {
   private readonly findAllStmt: Database.Statement<[], SourceRow>;
   private readonly findByIdStmt: Database.Statement<[number], SourceRow>;
   private readonly findBySlugStmt: Database.Statement<[string], SourceRow>;
-  private readonly createStmt: Database.Statement<[string, string], { id: number }>;
+  private readonly createStmt: Database.Statement<[string, string, string], { id: number }>;
+  private readonly updateStmt: Database.Statement<[string, string, number]>;
   private readonly updateSyncStmt: Database.Statement<[string, string, string | null, number]>;
   private readonly trySetSyncingStmt: Database.Statement<[number]>;
   private readonly deleteStmt: Database.Statement<[number]>;
@@ -47,8 +51,11 @@ export class SqliteSourceRepository implements SourceRepository {
     this.findBySlugStmt = db.prepare<[string], SourceRow>(
       "SELECT * FROM sources WHERE slug = ?"
     );
-    this.createStmt = db.prepare<[string, string], { id: number }>(
-      "INSERT INTO sources (slug, url) VALUES (?, ?) RETURNING id"
+    this.createStmt = db.prepare<[string, string, string], { id: number }>(
+      "INSERT INTO sources (slug, label, url) VALUES (?, ?, ?) RETURNING id"
+    );
+    this.updateStmt = db.prepare<[string, string, number]>(
+      "UPDATE sources SET label = ?, url = ? WHERE id = ?"
     );
     // last_synced_at is only updated to 'now' on success (status='idle');
     // for all other transitions the existing timestamp is preserved.
@@ -83,9 +90,14 @@ export class SqliteSourceRepository implements SourceRepository {
   }
 
   create(input: CreateSourceInput): Source {
-    const row = this.createStmt.get(input.slug, input.url);
+    const row = this.createStmt.get(input.slug, input.label, input.url);
     if (!row) throw new Error("INSERT failed to return id");
     return this.findById(row.id)!;
+  }
+
+  update(input: UpdateSourceInput): Source | undefined {
+    this.updateStmt.run(input.label, input.url, input.id);
+    return this.findById(input.id);
   }
 
   updateSync(input: UpdateSourceSyncInput): void {

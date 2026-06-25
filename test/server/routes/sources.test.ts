@@ -93,7 +93,7 @@ describe("Source Management API", () => {
   });
 
   it("6.4.2 — duplicate slug → 409 SLUG_CONFLICT", async () => {
-    repos.sources.create({ slug: "team-skills", url: "https://example.com/a" });
+    repos.sources.create({ slug: "team-skills", label: "team-skills", url: "https://example.com/a" });
 
     const res = await app.inject({
       method: "POST",
@@ -143,7 +143,7 @@ describe("Source Management API", () => {
   });
 
   it("6.4.4b — DELETE existing source removes it and its skills (FK CASCADE)", async () => {
-    const source = repos.sources.create({ slug: "to-delete", url: "https://example.com" });
+    const source = repos.sources.create({ slug: "to-delete", label: "to-delete", url: "https://example.com" });
     repos.skills.upsertMany([
       {
         sourceId: source.id,
@@ -155,29 +155,33 @@ describe("Source Management API", () => {
         digest: "abc",
         content: "# A",
         supportingFiles: [],
+        allowedTools: [],
+        skillPath: "skills/a-skill/SKILL.md",
+        category: null,
+        frontmatter: {},
       },
     ]);
     expect(repos.skills.findBySource(source.id)).toHaveLength(1);
 
     const res = await app.inject({
       method: "DELETE",
-      url: `/api/v1/sources/${source.id}`,
+      url: `/api/v1/sources/${source.slug}`,
       headers: authHeaders(),
     });
     expect(res.statusCode).toBe(200);
-    expect(res.json().message).toBe("Source deleted");
+    expect(res.json().ok).toBe(true);
 
     expect(repos.sources.findById(source.id)).toBeUndefined();
     expect(repos.skills.findBySource(source.id)).toHaveLength(0);
   });
 
-  it("6.4.4c — DELETE with non-integer id → 400", async () => {
+  it("6.4.4c — DELETE with unknown slug → 404", async () => {
     const res = await app.inject({
       method: "DELETE",
       url: "/api/v1/sources/not-a-number",
       headers: authHeaders(),
     });
-    expect(res.statusCode).toBe(400);
+    expect(res.statusCode).toBe(404);
   });
 
   // -------------------------------------------------------------------------
@@ -195,27 +199,128 @@ describe("Source Management API", () => {
   });
 
   it("6.4.6 — concurrent sync → 409 SYNC_IN_PROGRESS", async () => {
-    const source = repos.sources.create({ slug: "sync-test", url: "https://example.com" });
+    const source = repos.sources.create({ slug: "sync-test", label: "sync-test", url: "https://example.com" });
 
     // Simulate a sync already in progress
     repos.sources.updateSync({ id: source.id, status: "syncing" });
 
     const res = await app.inject({
       method: "POST",
-      url: `/api/v1/sources/${source.id}/sync`,
+      url: `/api/v1/sources/${source.slug}/sync`,
       headers: authHeaders(),
     });
     expect(res.statusCode).toBe(409);
     expect(res.json().error.code).toBe("SYNC_IN_PROGRESS");
   });
 
-  it("6.4.6b — sync with non-integer id → 400", async () => {
+  it("6.4.6b — sync with unknown slug → 404", async () => {
     const res = await app.inject({
       method: "POST",
       url: "/api/v1/sources/abc/sync",
       headers: authHeaders(),
     });
-    expect(res.statusCode).toBe(400);
+    expect(res.statusCode).toBe(404);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/v1/sources
+// ---------------------------------------------------------------------------
+
+describe("GET /api/v1/sources", () => {
+  let repos: Repositories;
+  let app: FastifyInstance;
+
+  beforeEach(async () => {
+    repos = makeRepos();
+    app = await buildTestServer(repos);
+  });
+
+  afterEach(async () => { await app.close(); });
+
+  it("returns empty list when no sources registered", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/v1/sources" });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ sources: [] });
+  });
+
+  it("lists sources with skillCount and expected fields", async () => {
+    const src = repos.sources.create({ slug: "my-skills", label: "My Skills", url: "https://example.com/repo" });
+    repos.skills.upsertMany([
+      {
+        sourceId: src.id, sourceSlug: src.slug, slug: "skill-a", name: "Skill A",
+        description: "", artifactType: "skill-md", digest: "abc", content: "# A",
+        supportingFiles: [], allowedTools: [], skillPath: "skills/skill-a/SKILL.md",
+        category: null, frontmatter: {},
+      },
+    ]);
+
+    const res = await app.inject({ method: "GET", url: "/api/v1/sources" });
+    expect(res.statusCode).toBe(200);
+    const { sources } = res.json();
+    expect(sources).toHaveLength(1);
+    expect(sources[0]).toMatchObject({
+      id: "my-skills",
+      label: "My Skills",
+      url: "https://example.com/repo",
+      skillCount: 1,
+      status: "idle",
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PUT /api/v1/sources/:id
+// ---------------------------------------------------------------------------
+
+describe("PUT /api/v1/sources/:id", () => {
+  let repos: Repositories;
+  let app: FastifyInstance;
+
+  beforeEach(async () => {
+    repos = makeRepos();
+    app = await buildTestServer(repos);
+  });
+
+  afterEach(async () => { await app.close(); });
+
+  it("updates label and url", async () => {
+    repos.sources.create({ slug: "orig", label: "Original", url: "https://example.com/old" });
+
+    const res = await app.inject({
+      method: "PUT",
+      url: "/api/v1/sources/orig",
+      headers: authHeaders({ "content-type": "application/json" }),
+      body: JSON.stringify({ label: "Updated Label", path: "https://example.com/new" }),
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().source).toMatchObject({
+      id: "orig",
+      label: "Updated Label",
+      url: "https://example.com/new",
+    });
+  });
+
+  it("returns 404 for unknown source", async () => {
+    const res = await app.inject({
+      method: "PUT",
+      url: "/api/v1/sources/does-not-exist",
+      headers: authHeaders({ "content-type": "application/json" }),
+      body: JSON.stringify({ label: "X" }),
+    });
+    expect(res.statusCode).toBe(404);
+    expect(res.json().error.code).toBe("SOURCE_NOT_FOUND");
+  });
+
+  it("requires auth", async () => {
+    repos.sources.create({ slug: "orig", label: "Original", url: "https://example.com" });
+    const res = await app.inject({
+      method: "PUT",
+      url: "/api/v1/sources/orig",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ label: "X" }),
+    });
+    expect(res.statusCode).toBe(401);
   });
 });
 

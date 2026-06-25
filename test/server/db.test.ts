@@ -23,7 +23,7 @@ describe("SqliteSourceRepository", () => {
   });
 
   it("creates a source and retrieves by id and slug", () => {
-    const created = sources.create({ slug: "team-skills", url: "https://github.com/acme/skills" });
+    const created = sources.create({ slug: "team-skills", label: "team-skills", url: "https://github.com/acme/skills" });
     expect(created.slug).toBe("team-skills");
     expect(created.syncStatus).toBe("idle");
 
@@ -32,12 +32,12 @@ describe("SqliteSourceRepository", () => {
   });
 
   it("rejects duplicate slugs", () => {
-    sources.create({ slug: "dupe", url: "https://example.com/a" });
-    expect(() => sources.create({ slug: "dupe", url: "https://example.com/b" })).toThrow();
+    sources.create({ slug: "dupe", label: "dupe", url: "https://example.com/a" });
+    expect(() => sources.create({ slug: "dupe", label: "dupe", url: "https://example.com/b" })).toThrow();
   });
 
   it("updates sync status to syncing then idle", () => {
-    const s = sources.create({ slug: "s1", url: "https://example.com" });
+    const s = sources.create({ slug: "s1", label: "s1", url: "https://example.com" });
     sources.updateSync({ id: s.id, status: "syncing" });
     expect(sources.findById(s.id)?.syncStatus).toBe("syncing");
     expect(sources.findById(s.id)?.lastSyncedAt).toBeNull();
@@ -47,7 +47,7 @@ describe("SqliteSourceRepository", () => {
   });
 
   it("records error on sync failure", () => {
-    const s = sources.create({ slug: "err-src", url: "https://bad.example.com" });
+    const s = sources.create({ slug: "err-src", label: "err-src", url: "https://bad.example.com" });
     sources.updateSync({ id: s.id, status: "error", error: "clone failed" });
     const updated = sources.findById(s.id);
     expect(updated?.syncStatus).toBe("error");
@@ -55,7 +55,7 @@ describe("SqliteSourceRepository", () => {
   });
 
   it("deletes a source", () => {
-    const s = sources.create({ slug: "to-delete", url: "https://example.com" });
+    const s = sources.create({ slug: "to-delete", label: "to-delete", url: "https://example.com" });
     sources.delete(s.id);
     expect(sources.findById(s.id)).toBeUndefined();
   });
@@ -73,7 +73,7 @@ describe("SqliteSkillRepository", () => {
   });
 
   function seedSource(slug = "acme") {
-    return sources.create({ slug, url: "https://github.com/acme/skills" });
+    return sources.create({ slug, label: slug, url: "https://github.com/acme/skills" });
   }
 
   const baseSkill = {
@@ -85,6 +85,10 @@ describe("SqliteSkillRepository", () => {
     digest: "abc123",
     content: "# React Patterns\nContent here.",
     supportingFiles: [],
+    allowedTools: [],
+    skillPath: 'skills/react-patterns/SKILL.md',
+    category: null,
+    frontmatter: {},
   };
 
   it("starts empty", () => {

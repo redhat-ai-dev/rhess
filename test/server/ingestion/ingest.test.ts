@@ -105,7 +105,7 @@ describe("ingestFromClonedPath", () => {
     await commitAll(tmpDir);
 
     const repos = makeRepos();
-    const source = repos.sources.create({ slug: "test-source", url: "file:///test" });
+    const source = repos.sources.create({ slug: "test-source", label: "test-source", url: "file:///test" });
     const report = await ingestFromClonedPath(source.id, source.slug, tmpDir, repos);
 
     expect(report.discovered).toBe(2);
@@ -129,7 +129,7 @@ describe("ingestFromClonedPath", () => {
     await commitAll(tmpDir);
 
     const repos = makeRepos();
-    const source = repos.sources.create({ slug: "test-source", url: "file:///test" });
+    const source = repos.sources.create({ slug: "test-source", label: "test-source", url: "file:///test" });
     const report = await ingestFromClonedPath(source.id, source.slug, tmpDir, repos);
 
     expect(report.discovered).toBe(2);
@@ -153,7 +153,7 @@ describe("ingestFromClonedPath", () => {
     await commitAll(tmpDir, "initial commit");
 
     const repos = makeRepos();
-    const source = repos.sources.create({ slug: "test-source", url: "file:///test" });
+    const source = repos.sources.create({ slug: "test-source", label: "test-source", url: "file:///test" });
     const report1 = await ingestFromClonedPath(source.id, source.slug, tmpDir, repos);
     expect(report1.indexed).toBe(2);
 

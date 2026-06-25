@@ -3,8 +3,11 @@ import os from "node:os";
 import path from "node:path";
 import { extract } from "tar";
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
-import type { SkillRepository } from "../db/types.js";
+import type { SkillRepository, Skill, Source } from "../db/types.js";
 import type { SearchProvider } from "../search/types.js";
+import type { Repositories } from "../db/init.js";
+import { createAdminAuthHook } from "../plugins/adminAuth.js";
+import { ingestSource } from "../ingestion/ingest.js";
 
 /**
  * Decode a base64 tar.gz archive and return all contained files as
@@ -45,9 +48,43 @@ async function expandArchiveToFiles(
   }
 }
 
+/**
+ * Derive the server's public base URL for constructing install commands.
+ * Mirrors the logic in wellKnown.ts.
+ */
+function resolveBaseUrl(req: FastifyRequest): string {
+  const configured = process.env["PUBLIC_BASE_URL"];
+  if (configured) return configured.replace(/\/+$/, "");
+  const raw = req.headers.host;
+  const host = (Array.isArray(raw) ? raw[0] : raw)?.trim() ?? req.hostname;
+  return `${req.protocol}://${host}`;
+}
+
+function skillToResponse(skill: Skill, source: Source | undefined, baseUrl: string) {
+  const installCommand = `npx skills add ${baseUrl}/api/v1/skills/${encodeURIComponent(skill.sourceSlug)}/${encodeURIComponent(skill.slug)}/artifact`;
+  return {
+    id: skill.id,
+    source: skill.sourceSlug,
+    sourceLabel: source?.label ?? skill.sourceSlug,
+    sourceUrl: source?.url ?? null,
+    slug: skill.slug,
+    name: skill.name,
+    description: skill.description,
+    artifactType: skill.artifactType,
+    digest: `sha256:${skill.digest}`,
+    category: skill.category,
+    allowedTools: skill.allowedTools,
+    skillPath: skill.skillPath,
+    frontmatter: skill.frontmatter,
+    installCommand,
+    lastModified: skill.updatedAt,
+  };
+}
+
 interface SkillsRouteOptions {
-  skills: SkillRepository;
+  repos: Repositories;
   search: SearchProvider;
+  adminToken: string;
 }
 
 function invalidParams(reply: FastifyReply, message: string) {
@@ -68,21 +105,23 @@ const errorSchema = {
   },
 } as const;
 
-const skillSummarySchema = {
-  type: "object",
-  properties: {
-    id: { type: "integer" },
-    name: { type: "string" },
-    description: { type: "string" },
-    source: { type: "string" },
-    slug: { type: "string" },
-    artifactType: { type: "string", enum: ["skill-md", "archive"] },
-    digest: { type: "string" },
-  },
-} as const;
+/** Rebuild the Fuse.js search index from all skills currently in DB. */
+function rebuildSearchIndex(repos: Repositories, searchProvider: SearchProvider): void {
+  searchProvider.buildIndex(
+    repos.skills.findAllUnpaged().map((s) => ({
+      id: s.id,
+      sourceSlug: s.sourceSlug,
+      slug: s.slug,
+      name: s.name,
+      description: s.description,
+    }))
+  );
+}
 
 const skillsPlugin: FastifyPluginAsync<SkillsRouteOptions> = async (fastify, opts) => {
-  const { skills, search } = opts;
+  const { repos, search, adminToken } = opts;
+  const { skills, sources } = repos;
+  const adminAuth = createAdminAuthHook(adminToken);
 
   // Search must be registered BEFORE /:source/:slug to avoid path conflict
   fastify.get(
@@ -91,32 +130,21 @@ const skillsPlugin: FastifyPluginAsync<SkillsRouteOptions> = async (fastify, opt
       schema: {
         tags: ["Skills"],
         summary: "Fuzzy search skills",
-        description: "Full-text fuzzy search over skill names, descriptions, and source identifiers. Results are ordered by relevance (best match first).",
+        description: "Full-text fuzzy search over skill names, descriptions, and source identifiers.",
         querystring: {
           type: "object",
           required: ["q"],
           properties: {
-            q: { type: "string", description: "Search query (typo-tolerant)" },
+            q: { type: "string" },
           },
         },
         response: {
           200: {
             type: "object",
             properties: {
-              data: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    id: { type: "integer" },
-                    source: { type: "string" },
-                    slug: { type: "string" },
-                    name: { type: "string" },
-                    description: { type: "string" },
-                    score: { type: "number", description: "Fuse.js distance score — lower is a better match (0 = exact)" },
-                  },
-                },
-              },
+              data: { type: "array", items: { type: "object", additionalProperties: true } },
+              total: { type: "integer" },
+              query: { type: "string" },
             },
           },
           400: errorSchema,
@@ -134,17 +162,16 @@ const skillsPlugin: FastifyPluginAsync<SkillsRouteOptions> = async (fastify, opt
           .send({ error: { code: "MISSING_QUERY", message: "Query parameter 'q' is required." } });
       }
 
+      const baseUrl = resolveBaseUrl(req);
+      const sourceMap = new Map(sources.findAll().map((s) => [s.slug, s]));
       const results = search.search(q.trim());
-      const data = results.map((r) => ({
-        id: r.id,
-        source: r.sourceSlug,
-        slug: r.slug,
-        name: r.name,
-        description: r.description,
-        score: r.score,
-      }));
+      const enriched = results.map((r) => {
+        const skill = skills.findBySourceAndSlug(r.sourceSlug, r.slug);
+        if (!skill) return null;
+        return skillToResponse(skill, sourceMap.get(skill.sourceSlug), baseUrl);
+      }).filter(Boolean);
 
-      return reply.send({ data });
+      return reply.send({ data: enriched, total: enriched.length, query: q });
     }
   );
 
@@ -159,22 +186,24 @@ const skillsPlugin: FastifyPluginAsync<SkillsRouteOptions> = async (fastify, opt
         querystring: {
           type: "object",
           properties: {
-            page: { type: "integer", minimum: 1, default: 1, description: "Page number (1-based)" },
-            per_page: { type: "integer", minimum: 1, maximum: 100, default: 20, description: "Results per page (1–100)" },
-            sort: { type: "string", enum: ["name", "updated_at"], default: "name", description: "Sort field" },
+            page: { type: "integer", minimum: 1, default: 1 },
+            per_page: { type: "integer", minimum: 1, maximum: 100, default: 20 },
+            sort: { type: "string", enum: ["name", "updated_at"], default: "name" },
           },
         },
         response: {
           200: {
             type: "object",
             properties: {
-              data: { type: "array", items: skillSummarySchema },
+              data: { type: "array", items: { type: "object", additionalProperties: true } },
               meta: {
                 type: "object",
                 properties: {
+                  total: { type: "integer" },
                   page: { type: "integer" },
                   per_page: { type: "integer" },
-                  total: { type: "integer" },
+                  total_pages: { type: "integer" },
+                  sort: { type: "string" },
                 },
               },
             },
@@ -190,45 +219,30 @@ const skillsPlugin: FastifyPluginAsync<SkillsRouteOptions> = async (fastify, opt
       reply: FastifyReply
     ) => {
       const rawPage = req.query.page !== undefined ? Number(req.query.page) : 1;
-      const rawPerPage =
-        req.query.per_page !== undefined ? Number(req.query.per_page) : 20;
+      const rawPerPage = req.query.per_page !== undefined ? Number(req.query.per_page) : 20;
       const rawSort = req.query.sort ?? "name";
 
-      if (
-        !Number.isInteger(rawPage) ||
-        rawPage < 1
-      ) {
+      if (!Number.isInteger(rawPage) || rawPage < 1) {
         return invalidParams(reply, "'page' must be a positive integer.");
       }
-      if (
-        !Number.isInteger(rawPerPage) ||
-        rawPerPage < 1 ||
-        rawPerPage > 100
-      ) {
-        return invalidParams(
-          reply,
-          "'per_page' must be an integer between 1 and 100."
-        );
+      if (!Number.isInteger(rawPerPage) || rawPerPage < 1 || rawPerPage > 100) {
+        return invalidParams(reply, "'per_page' must be an integer between 1 and 100.");
       }
       if (rawSort !== "name" && rawSort !== "updated_at") {
         return invalidParams(reply, "'sort' must be 'name' or 'updated_at'.");
       }
 
       const sort = rawSort === "updated_at" ? "updatedAt" : "name";
+      const baseUrl = resolveBaseUrl(req);
+      const sourceMap = new Map(sources.findAll().map((s) => [s.slug, s]));
+
       const data = skills.findAll({ page: rawPage, perPage: rawPerPage, sort });
       const total = skills.count();
+      const total_pages = Math.ceil(total / rawPerPage);
 
       return reply.send({
-        data: data.map((s) => ({
-          id: s.id,
-          name: s.name,
-          description: s.description,
-          source: s.sourceSlug,
-          slug: s.slug,
-          artifactType: s.artifactType,
-          digest: `sha256:${s.digest}`,
-        })),
-        meta: { page: rawPage, per_page: rawPerPage, total },
+        data: data.map((s) => skillToResponse(s, sourceMap.get(s.sourceSlug), baseUrl)),
+        meta: { total, page: rawPage, per_page: rawPerPage, total_pages, sort: rawSort },
       });
     }
   );
@@ -240,20 +254,17 @@ const skillsPlugin: FastifyPluginAsync<SkillsRouteOptions> = async (fastify, opt
       schema: {
         tags: ["Discovery"],
         summary: "Download skill artifact",
-        description: "Returns the raw artifact: `text/markdown` for single-file skills, `application/gzip` (tar.gz) for multi-file skills. This URL is referenced in the well-known discovery index.",
+        description: "Returns the raw artifact: `text/markdown` for single-file skills, `application/gzip` (tar.gz) for multi-file skills.",
         params: {
           type: "object",
           required: ["source", "slug"],
           properties: {
-            source: { type: "string", description: "Source slug" },
-            slug: { type: "string", description: "Skill slug" },
+            source: { type: "string" },
+            slug: { type: "string" },
           },
         },
         response: {
-          200: {
-            description: "Raw artifact. Content-Type is `text/markdown; charset=utf-8` for skill-md or `application/gzip` for archive.",
-            type: "string",
-          },
+          200: { description: "Raw artifact.", type: "string" },
           404: errorSchema,
         },
       },
@@ -286,53 +297,137 @@ const skillsPlugin: FastifyPluginAsync<SkillsRouteOptions> = async (fastify, opt
     }
   );
 
-  // Skill detail (registered AFTER /search)
-  fastify.get(
+  // Re-sync a single skill — re-runs full source sync and the skill is refreshed as part of that
+  fastify.post<{ Params: { source: string; slug: string } }>(
+    "/:source/:slug/sync",
+    {
+      onRequest: adminAuth,
+      schema: {
+        tags: ["Skills"],
+        summary: "Re-sync a single skill's source",
+        description: "Triggers a full re-sync of the parent source, refreshing all its skills including this one.",
+        params: {
+          type: "object",
+          required: ["source", "slug"],
+          properties: {
+            source: { type: "string" },
+            slug: { type: "string" },
+          },
+        },
+        security: [{ bearerAuth: [] }],
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              synced: { type: "boolean" },
+              skillId: { type: "string" },
+              lastSynced: { type: "string" },
+            },
+          },
+          404: errorSchema,
+          409: errorSchema,
+          422: errorSchema,
+        },
+      },
+    },
+    async (req, reply) => {
+      const { source, slug } = req.params;
+      const skill = skills.findBySourceAndSlug(source, slug);
+      if (!skill) {
+        return reply.code(404).send({
+          error: { code: "SKILL_NOT_FOUND", message: `Skill '${source}/${slug}' not found.` },
+        });
+      }
+
+      const dbSource = sources.findById(skill.sourceId);
+      if (!dbSource) {
+        return reply.code(404).send({
+          error: { code: "SOURCE_NOT_FOUND", message: `Source for skill not found.` },
+        });
+      }
+
+      const locked = sources.trySetSyncing(dbSource.id);
+      if (!locked) {
+        return reply.code(409).send({
+          error: { code: "SYNC_IN_PROGRESS", message: "A sync is already in progress for this source" },
+        });
+      }
+
+      try {
+        await ingestSource(dbSource.id, dbSource.slug, dbSource.url, repos);
+        sources.updateSync({ id: dbSource.id, status: "idle", error: null });
+        rebuildSearchIndex(repos, search);
+        const now = new Date().toISOString();
+        return reply.send({ synced: true, skillId: `${source}/${slug}`, lastSynced: now });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        sources.updateSync({ id: dbSource.id, status: "error", error: message });
+        return reply.code(422).send({ error: { code: "SYNC_FAILED", message } });
+      }
+    }
+  );
+
+  // Delete a single skill (admin)
+  fastify.delete<{ Params: { source: string; slug: string } }>(
+    "/:source/:slug",
+    {
+      onRequest: adminAuth,
+      schema: {
+        tags: ["Skills"],
+        summary: "Delete a single skill",
+        description: "Removes a single skill from the catalog without touching the source or other skills.",
+        params: {
+          type: "object",
+          required: ["source", "slug"],
+          properties: {
+            source: { type: "string" },
+            slug: { type: "string" },
+          },
+        },
+        security: [{ bearerAuth: [] }],
+        response: {
+          200: { type: "object", properties: { ok: { type: "boolean" } } },
+          404: errorSchema,
+        },
+      },
+    },
+    async (req, reply) => {
+      const { source, slug } = req.params;
+      const skill = skills.findBySourceAndSlug(source, slug);
+      if (!skill) {
+        return reply.code(404).send({
+          error: { code: "SKILL_NOT_FOUND", message: `Skill '${source}/${slug}' not found.` },
+        });
+      }
+      skills.deleteBySourceAndSlug(source, slug);
+      rebuildSearchIndex(repos, search);
+      return reply.send({ ok: true });
+    }
+  );
+
+  // Skill detail (registered AFTER /search and AFTER /:source/:slug/artifact)
+  fastify.get<{ Params: { source: string; slug: string } }>(
     "/:source/:slug",
     {
       schema: {
         tags: ["Skills"],
         summary: "Get skill detail",
-        description: "Returns full skill metadata and the complete file tree. For archive skills the files are extracted on demand.",
+        description: "Returns full skill metadata and the complete file tree.",
         params: {
           type: "object",
           required: ["source", "slug"],
           properties: {
-            source: { type: "string", description: "Source slug" },
-            slug: { type: "string", description: "Skill slug" },
+            source: { type: "string" },
+            slug: { type: "string" },
           },
         },
         response: {
-          200: {
-            type: "object",
-            properties: {
-              id: { type: "integer" },
-              source: { type: "string" },
-              slug: { type: "string" },
-              name: { type: "string" },
-              description: { type: "string" },
-              artifactType: { type: "string", enum: ["skill-md", "archive"] },
-              digest: { type: "string" },
-              files: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    path: { type: "string" },
-                    contents: { type: "string" },
-                  },
-                },
-              },
-            },
-          },
+          200: { type: "object", additionalProperties: true },
           404: errorSchema,
         },
       },
     },
-    async (
-      req: FastifyRequest<{ Params: { source: string; slug: string } }>,
-      reply: FastifyReply
-    ) => {
+    async (req, reply) => {
       const { source, slug } = req.params;
       const skill = skills.findBySourceAndSlug(source, slug);
 
@@ -342,19 +437,16 @@ const skillsPlugin: FastifyPluginAsync<SkillsRouteOptions> = async (fastify, opt
         });
       }
 
+      const baseUrl = resolveBaseUrl(req);
+      const dbSource = sources.findById(skill.sourceId);
       const files: Array<{ path: string; contents: string }> =
         skill.artifactType === "skill-md"
           ? [{ path: "SKILL.md", contents: skill.content }]
           : await expandArchiveToFiles(skill.content);
 
       return reply.send({
-        id: skill.id,
-        source: skill.sourceSlug,
-        slug: skill.slug,
-        name: skill.name,
-        description: skill.description,
-        artifactType: skill.artifactType,
-        digest: `sha256:${skill.digest}`,
+        ...skillToResponse(skill, dbSource, baseUrl),
+        content: skill.artifactType === "skill-md" ? skill.content : (files[0]?.contents ?? ""),
         files,
       });
     }

@@ -12,6 +12,7 @@ const MIGRATIONS: Migration[] = [
       CREATE TABLE IF NOT EXISTS sources (
         id            INTEGER PRIMARY KEY AUTOINCREMENT,
         slug          TEXT    NOT NULL UNIQUE,
+        label         TEXT    NOT NULL DEFAULT '',
         url           TEXT    NOT NULL,
         created_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
         last_synced_at TEXT,
@@ -32,6 +33,10 @@ const MIGRATIONS: Migration[] = [
         digest           TEXT    NOT NULL DEFAULT '',
         content          TEXT    NOT NULL DEFAULT '',
         supporting_files TEXT    NOT NULL DEFAULT '[]',
+        allowed_tools    TEXT    NOT NULL DEFAULT '[]',
+        skill_path       TEXT    NOT NULL DEFAULT '',
+        category         TEXT,
+        frontmatter      TEXT    NOT NULL DEFAULT '{}',
         created_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
         updated_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
         UNIQUE (source_id, slug)

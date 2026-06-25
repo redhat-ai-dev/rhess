@@ -62,12 +62,12 @@
 
 ## 8. Web Directory UI
 
-- [ ] 8.1 Scaffold PatternFly React app in `src/ui/`: install `@patternfly/react-core`, `react-markdown`, `react-router-dom`
-- [ ] 8.2 Implement skill list page: PatternFly `Table` with name, description, source, copy-to-clipboard install command
-- [ ] 8.3 Implement real-time search bar: debounced `GET /api/v1/skills/search` calls, results replace list
-- [ ] 8.4 Implement skill detail page (`/:source/:slug`): fetch skill, render SKILL.md with `react-markdown`, display frontmatter metadata
-- [ ] 8.5 Implement admin panel (add source form, sync button, delete button): prompts for admin token, stores in session, uses `Authorization: Bearer` header
-- [ ] 8.6 Configure Fastify to serve built UI assets from `dist/ui/` and return `index.html` for all non-API routes (SPA fallback)
+- [x] 8.1 Scaffold PatternFly React app in `src/ui/`: install `@patternfly/react-core`, `react-markdown`, `react-router-dom`
+- [x] 8.2 Implement skill list page: PatternFly `Table` with name, description, source, copy-to-clipboard install command
+- [x] 8.3 Implement real-time search bar: debounced `GET /api/v1/skills/search` calls, results replace list
+- [x] 8.4 Implement skill detail page (`/:source/:slug`): fetch skill, render SKILL.md with `react-markdown`, display frontmatter metadata
+- [x] 8.5 Implement admin panel (add source form, sync button, delete button): prompts for admin token, stores in session, uses `Authorization: Bearer` header
+- [x] 8.6 Configure Fastify to serve built UI assets from `dist/ui/` and return `index.html` for all non-API routes (SPA fallback)
 
 ## 9. Container & Deployment
 
