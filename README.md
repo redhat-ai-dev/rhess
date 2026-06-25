@@ -15,6 +15,15 @@ RHESS is fully compatible with the `npx skills` CLI and the [Agent Skills specif
 - **Agent Skills spec compliant** — serves `/.well-known/agent-skills/index.json` for `npx skills` CLI discovery (v0.2.0)
 - **OCI container** — runs on OpenShift, Kubernetes, or locally via Podman/Docker
 
+## Development Setup
+
+```bash
+npm install   # install dependencies
+npm run dev   # start API server + UI in watch mode
+npm test      # run tests
+npm run lint  # lint
+```
+
 ## Quickstart (local)
 
 ```bash
@@ -65,7 +74,7 @@ git clone https://github.com/YOUR_USERNAME/rhess.git
 cd rhess
 git remote add upstream https://github.com/redhat-ai-dev/rhess.git
 
-# Install dependencies (once package.json exists)
+# Install dependencies
 npm install
 
 # Start dev server

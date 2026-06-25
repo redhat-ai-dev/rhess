@@ -1,0 +1,1361 @@
+openapi: 3.0.3
+info:
+  title: RHESS — Red Hat Enterprise Skills Server
+  description: >-
+    Self-hosted AI agent skills directory. Skills Catalog and Discovery endpoints are unauthenticated. Source management
+    (write) endpoints require `Authorization: Bearer <RHESS_ADMIN_TOKEN>`.
+  version: 0.1.0
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Value of the RHESS_ADMIN_TOKEN environment variable
+  schemas: {}
+paths:
+  /healthz:
+    get:
+      summary: Liveness probe
+      tags:
+        - Ops
+      description: Always returns 200 while the process is running.
+      responses:
+        '200':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+  /readyz:
+    get:
+      summary: Readiness probe
+      tags:
+        - Ops
+      description: Returns 200 when SQLite is reachable, 503 otherwise.
+      responses:
+        '200':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+        '503':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+  /api/v1/skills/search:
+    get:
+      summary: Fuzzy search skills
+      tags:
+        - Skills
+      description: Full-text fuzzy search over skill names, descriptions, and source identifiers.
+      parameters:
+        - schema:
+            type: string
+          in: query
+          name: q
+          required: true
+      responses:
+        '200':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          description: Internal numeric skill ID
+                        source:
+                          type: string
+                          description: Source slug
+                        sourceLabel:
+                          type: string
+                          description: Human-readable source label
+                        sourceUrl:
+                          type: string
+                          nullable: true
+                          description: Source git repository URL
+                        slug:
+                          type: string
+                          description: Skill slug within its source
+                        name:
+                          type: string
+                          description: Skill display name from frontmatter
+                        description:
+                          type: string
+                          description: Skill description from frontmatter
+                        artifactType:
+                          type: string
+                          enum:
+                            - skill-md
+                            - archive
+                          description: Artifact type
+                        digest:
+                          type: string
+                          description: SHA-256 content digest prefixed with 'sha256:'
+                        category:
+                          type: string
+                          nullable: true
+                          description: Skill category (null until spec support is added)
+                        allowedTools:
+                          type: array
+                          items:
+                            type: string
+                          description: Tools the skill is allowed to use
+                        skillPath:
+                          type: string
+                          description: Relative path to SKILL.md within the source repository
+                        frontmatter:
+                          type: object
+                          additionalProperties: true
+                          description: Full parsed frontmatter map (excluding name/description)
+                        installCommand:
+                          type: string
+                          description: npx skills add … command to install this skill
+                        lastModified:
+                          type: string
+                          description: ISO 8601 timestamp of last update
+                      required:
+                        - id
+                        - source
+                        - slug
+                        - name
+                        - description
+                        - artifactType
+                        - digest
+                        - allowedTools
+                        - skillPath
+                        - installCommand
+                        - lastModified
+                  total:
+                    type: integer
+                    description: Total number of matching skills
+                  query:
+                    type: string
+                    description: The search query that was executed
+                required:
+                  - data
+                  - total
+                  - query
+        '400':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+  /api/v1/skills/:
+    get:
+      summary: List all skills
+      tags:
+        - Skills
+      description: Returns a paginated list of all indexed skills.
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            default: 1
+          in: query
+          name: page
+          required: false
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          in: query
+          name: per_page
+          required: false
+        - schema:
+            type: string
+            enum:
+              - name
+              - updated_at
+            default: name
+          in: query
+          name: sort
+          required: false
+      responses:
+        '200':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          description: Internal numeric skill ID
+                        source:
+                          type: string
+                          description: Source slug
+                        sourceLabel:
+                          type: string
+                          description: Human-readable source label
+                        sourceUrl:
+                          type: string
+                          nullable: true
+                          description: Source git repository URL
+                        slug:
+                          type: string
+                          description: Skill slug within its source
+                        name:
+                          type: string
+                          description: Skill display name from frontmatter
+                        description:
+                          type: string
+                          description: Skill description from frontmatter
+                        artifactType:
+                          type: string
+                          enum:
+                            - skill-md
+                            - archive
+                          description: Artifact type
+                        digest:
+                          type: string
+                          description: SHA-256 content digest prefixed with 'sha256:'
+                        category:
+                          type: string
+                          nullable: true
+                          description: Skill category (null until spec support is added)
+                        allowedTools:
+                          type: array
+                          items:
+                            type: string
+                          description: Tools the skill is allowed to use
+                        skillPath:
+                          type: string
+                          description: Relative path to SKILL.md within the source repository
+                        frontmatter:
+                          type: object
+                          additionalProperties: true
+                          description: Full parsed frontmatter map (excluding name/description)
+                        installCommand:
+                          type: string
+                          description: npx skills add … command to install this skill
+                        lastModified:
+                          type: string
+                          description: ISO 8601 timestamp of last update
+                      required:
+                        - id
+                        - source
+                        - slug
+                        - name
+                        - description
+                        - artifactType
+                        - digest
+                        - allowedTools
+                        - skillPath
+                        - installCommand
+                        - lastModified
+                  meta:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        description: Total number of indexed skills
+                      page:
+                        type: integer
+                        description: Current page number (1-based)
+                      per_page:
+                        type: integer
+                        description: Results per page
+                      total_pages:
+                        type: integer
+                        description: Total number of pages
+                      sort:
+                        type: string
+                        description: Active sort field
+                    required:
+                      - total
+                      - page
+                      - per_page
+                      - total_pages
+                      - sort
+                required:
+                  - data
+                  - meta
+        '400':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+  /api/v1/skills/{source}/{slug}/artifact:
+    get:
+      summary: Download skill artifact
+      tags:
+        - Discovery
+      description: >-
+        Returns the raw artifact: `text/markdown` for single-file skills, `application/gzip` (tar.gz) for multi-file
+        skills.
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: source
+          required: true
+        - schema:
+            type: string
+          in: path
+          name: slug
+          required: true
+      responses:
+        '200':
+          description: Raw artifact.
+          content:
+            text/markdown:
+              schema:
+                type: string
+            application/gzip:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+  /api/v1/skills/{source}/{slug}/sync:
+    post:
+      summary: Re-sync a single skill's source
+      tags:
+        - Skills
+      description: Triggers a full re-sync of the parent source, refreshing all its skills including this one.
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: source
+          required: true
+        - schema:
+            type: string
+          in: path
+          name: slug
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  synced:
+                    type: boolean
+                  skillId:
+                    type: string
+                    description: Composite 'source/slug' identifier
+                  lastSynced:
+                    type: string
+                    description: ISO 8601 timestamp of the completed sync
+                required:
+                  - synced
+                  - skillId
+                  - lastSynced
+        '401':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+        '403':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+        '404':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+        '409':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+        '422':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+  /api/v1/skills/{source}/{slug}:
+    delete:
+      summary: Delete a single skill
+      tags:
+        - Skills
+      description: Removes a single skill from the catalog without touching the source or other skills.
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: source
+          required: true
+        - schema:
+            type: string
+          in: path
+          name: slug
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required:
+                  - ok
+        '401':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+        '403':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+        '404':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+    get:
+      summary: Get skill detail
+      tags:
+        - Skills
+      description: Returns full skill metadata and the complete file tree.
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: source
+          required: true
+        - schema:
+            type: string
+          in: path
+          name: slug
+          required: true
+      responses:
+        '200':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      id:
+                        type: integer
+                        description: Internal numeric skill ID
+                      source:
+                        type: string
+                        description: Source slug
+                      sourceLabel:
+                        type: string
+                        description: Human-readable source label
+                      sourceUrl:
+                        type: string
+                        nullable: true
+                        description: Source git repository URL
+                      slug:
+                        type: string
+                        description: Skill slug within its source
+                      name:
+                        type: string
+                        description: Skill display name from frontmatter
+                      description:
+                        type: string
+                        description: Skill description from frontmatter
+                      artifactType:
+                        type: string
+                        enum:
+                          - skill-md
+                          - archive
+                        description: Artifact type
+                      digest:
+                        type: string
+                        description: SHA-256 content digest prefixed with 'sha256:'
+                      category:
+                        type: string
+                        nullable: true
+                        description: Skill category (null until spec support is added)
+                      allowedTools:
+                        type: array
+                        items:
+                          type: string
+                        description: Tools the skill is allowed to use
+                      skillPath:
+                        type: string
+                        description: Relative path to SKILL.md within the source repository
+                      frontmatter:
+                        type: object
+                        additionalProperties: true
+                        description: Full parsed frontmatter map (excluding name/description)
+                      installCommand:
+                        type: string
+                        description: npx skills add … command to install this skill
+                      lastModified:
+                        type: string
+                        description: ISO 8601 timestamp of last update
+                    required:
+                      - id
+                      - source
+                      - slug
+                      - name
+                      - description
+                      - artifactType
+                      - digest
+                      - allowedTools
+                      - skillPath
+                      - installCommand
+                      - lastModified
+                  - type: object
+                    properties:
+                      content:
+                        type: string
+                        description: Raw SKILL.md text (skill-md) or first file contents (archive)
+                      files:
+                        type: array
+                        description: All files in the skill artifact, SKILL.md sorted first
+                        items:
+                          type: object
+                          properties:
+                            path:
+                              type: string
+                            contents:
+                              type: string
+                          required:
+                            - path
+                            - contents
+                    required:
+                      - content
+                      - files
+        '404':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+  /.well-known/agent-skills/index.json:
+    get:
+      summary: Agent Skills discovery index
+      tags:
+        - Discovery
+      description: >-
+        Returns the Agent Skills CLI discovery manifest. Each entry contains the skill name, type (`skill-md` or
+        `archive`), description, artifact URL, and SHA-256 digest. Set `PUBLIC_BASE_URL` when running behind a reverse
+        proxy to ensure correct artifact URLs.
+      responses:
+        '200':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  $schema:
+                    type: string
+                  skills:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        type:
+                          type: string
+                          enum:
+                            - skill-md
+                            - archive
+                        description:
+                          type: string
+                        url:
+                          type: string
+                          format: uri
+                        digest:
+                          type: string
+                          description: sha256:<hex> content digest
+                      required:
+                        - name
+                        - type
+                        - description
+                        - url
+                        - digest
+  /api/v1/sources/:
+    get:
+      summary: List skill sources
+      tags:
+        - Sources
+      description: Returns all registered skill sources with their skill counts and sync status.
+      responses:
+        '200':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sources:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          description: Source slug (used as public identifier)
+                        path:
+                          type: string
+                          description: Git repository URL (alias for url)
+                        label:
+                          type: string
+                          description: Human-readable display name
+                        url:
+                          type: string
+                          description: Git repository URL
+                        lastSynced:
+                          type: string
+                          nullable: true
+                          description: ISO 8601 timestamp of last successful sync
+                        skillCount:
+                          type: integer
+                          description: Number of indexed skills from this source
+                        status:
+                          type: string
+                          enum:
+                            - idle
+                            - syncing
+                            - error
+                          description: Current sync status
+                required:
+                  - sources
+    post:
+      summary: Register a skill source
+      tags:
+        - Sources
+      description: Clones the given git repository, discovers SKILL.md files, and indexes them.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                path:
+                  type: string
+                  description: HTTPS or SSH git URL (required if url is not supplied)
+                label:
+                  type: string
+                  description: Display name; derived from URL if omitted
+                url:
+                  type: string
+                  description: Legacy alias for path
+                slug:
+                  type: string
+                  description: Legacy explicit slug; derived from label/path if omitted
+      security: &ref_0
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  source:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        description: Source slug (used as public identifier)
+                      path:
+                        type: string
+                        description: Git repository URL (alias for url)
+                      label:
+                        type: string
+                        description: Human-readable display name
+                      url:
+                        type: string
+                        description: Git repository URL
+                      lastSynced:
+                        type: string
+                        nullable: true
+                        description: ISO 8601 timestamp of last successful sync
+                      skillCount:
+                        type: integer
+                        description: Number of indexed skills from this source
+                      status:
+                        type: string
+                        enum:
+                          - idle
+                          - syncing
+                          - error
+                        description: Current sync status
+                  syncReport:
+                    type: object
+                    properties:
+                      discovered:
+                        type: integer
+                      indexed:
+                        type: integer
+                      failed:
+                        type: integer
+                      failures:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            path:
+                              type: string
+                            reason:
+                              type: string
+                required:
+                  - source
+                  - syncReport
+        '400':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+        '401':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+        '403':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+        '409':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+        '422':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+  /api/v1/sources/{id}:
+    put:
+      summary: Update a skill source
+      tags:
+        - Sources
+      description: Updates the display label and/or git URL for a source. Does not re-sync.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                path:
+                  type: string
+                label:
+                  type: string
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: id
+          required: true
+          description: Source slug
+      security: *ref_0
+      responses:
+        '200':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  source:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        description: Source slug (used as public identifier)
+                      path:
+                        type: string
+                        description: Git repository URL (alias for url)
+                      label:
+                        type: string
+                        description: Human-readable display name
+                      url:
+                        type: string
+                        description: Git repository URL
+                      lastSynced:
+                        type: string
+                        nullable: true
+                        description: ISO 8601 timestamp of last successful sync
+                      skillCount:
+                        type: integer
+                        description: Number of indexed skills from this source
+                      status:
+                        type: string
+                        enum:
+                          - idle
+                          - syncing
+                          - error
+                        description: Current sync status
+                required:
+                  - source
+        '400':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+        '401':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+        '403':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+        '404':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+    delete:
+      summary: Delete a skill source
+      tags:
+        - Sources
+      description: Removes the source record and all associated skills from the index.
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: id
+          required: true
+          description: Source slug
+      security: *ref_0
+      responses:
+        '200':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  skillsRemoved:
+                    type: integer
+        '401':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+        '403':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+        '404':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+  /api/v1/sources/{id}/sync:
+    post:
+      summary: Sync a skill source
+      tags:
+        - Sources
+      description: Re-clones the repository and re-indexes all skills. Rejects with 409 if a sync is already in progress.
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: id
+          required: true
+          description: Source slug
+      security: *ref_0
+      responses:
+        '200':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  synced:
+                    type: boolean
+                  count:
+                    type: integer
+                  lastSynced:
+                    type: string
+        '401':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+        '403':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+        '404':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+        '409':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+        '422':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+  /api/sync:
+    post:
+      summary: Re-sync all sources
+      tags:
+        - Sources
+      description: >-
+        Re-clones and re-indexes every registered source sequentially. Sources already being synced are skipped.
+        Rebuilds the search index when complete.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  synced:
+                    type: integer
+                    description: Number of sources successfully re-synced
+                  count:
+                    type: integer
+                    description: Total number of indexed skills after the sync
+                required:
+                  - synced
+                  - count
+        '401':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+        '403':
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+tags:
+  - name: Skills
+    description: Browse and search the skill catalog
+  - name: Sources
+    description: Manage skill sources (admin token required on write routes)
+  - name: Discovery
+    description: Agent Skills CLI discovery and artifact download
+  - name: Ops
+    description: Health and readiness probes
