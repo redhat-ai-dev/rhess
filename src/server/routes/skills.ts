@@ -290,7 +290,13 @@ const skillsPlugin: FastifyPluginAsync<SkillsRouteOptions> = async (fastify, opt
           },
         },
         response: {
-          200: { description: "Raw artifact.", type: "string" },
+          200: {
+            description: "Raw artifact.",
+            content: {
+              "text/markdown": { schema: { type: "string" } },
+              "application/gzip": { schema: { type: "string", format: "binary" } },
+            },
+          },
           404: errorSchema,
         },
       },

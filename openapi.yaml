@@ -349,10 +349,13 @@ paths:
         '200':
           description: Raw artifact.
           content:
-            application/json:
+            text/markdown:
               schema:
-                description: Raw artifact.
                 type: string
+            application/gzip:
+              schema:
+                type: string
+                format: binary
         '404':
           description: Default Response
           content:
