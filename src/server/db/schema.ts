@@ -7,18 +7,18 @@ interface Migration {
 
 const MIGRATIONS: Migration[] = [
   {
-    // Original schema — no new metadata columns yet.
     version: 1,
     up: `
       CREATE TABLE IF NOT EXISTS sources (
-        id            INTEGER PRIMARY KEY AUTOINCREMENT,
-        slug          TEXT    NOT NULL UNIQUE,
-        url           TEXT    NOT NULL,
-        created_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        slug           TEXT    NOT NULL UNIQUE,
+        label          TEXT    NOT NULL DEFAULT '',
+        url            TEXT    NOT NULL,
+        created_at     TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
         last_synced_at TEXT,
-        sync_status   TEXT    NOT NULL DEFAULT 'idle'
-                              CHECK (sync_status IN ('idle', 'syncing', 'error')),
-        sync_error    TEXT
+        sync_status    TEXT    NOT NULL DEFAULT 'idle'
+                               CHECK (sync_status IN ('idle', 'syncing', 'error')),
+        sync_error     TEXT
       );
 
       CREATE TABLE IF NOT EXISTS skills (
@@ -33,6 +33,10 @@ const MIGRATIONS: Migration[] = [
         digest           TEXT    NOT NULL DEFAULT '',
         content          TEXT    NOT NULL DEFAULT '',
         supporting_files TEXT    NOT NULL DEFAULT '[]',
+        allowed_tools    TEXT    NOT NULL DEFAULT '[]',
+        skill_path       TEXT    NOT NULL DEFAULT '',
+        category         TEXT,
+        frontmatter      TEXT    NOT NULL DEFAULT '{}',
         created_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
         updated_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
         UNIQUE (source_id, slug)
@@ -41,20 +45,6 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_skills_source_id   ON skills(source_id);
       CREATE INDEX IF NOT EXISTS idx_skills_source_slug ON skills(source_slug);
       CREATE INDEX IF NOT EXISTS idx_skills_name        ON skills(name COLLATE NOCASE);
-    `,
-  },
-  {
-    // Add skill metadata fields and source label.
-    // Runs on existing v1 DBs and on fresh installs (which applied v1 above).
-    version: 2,
-    up: `
-      ALTER TABLE sources ADD COLUMN label TEXT NOT NULL DEFAULT '';
-      UPDATE sources SET label = slug WHERE label = '';
-
-      ALTER TABLE skills ADD COLUMN allowed_tools TEXT NOT NULL DEFAULT '[]';
-      ALTER TABLE skills ADD COLUMN skill_path    TEXT NOT NULL DEFAULT '';
-      ALTER TABLE skills ADD COLUMN category      TEXT;
-      ALTER TABLE skills ADD COLUMN frontmatter   TEXT NOT NULL DEFAULT '{}';
     `,
   },
 ];
