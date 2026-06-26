@@ -17,8 +17,9 @@ spec:
         app: rhess
     spec:
       securityContext:
-        fsGroup: 1001
-        fsGroupChangePolicy: OnRootMismatch
+        # OpenShift assigns fsGroup automatically from the namespace range.
+        # On vanilla Kubernetes, add fsGroup: <gid> here to ensure the PVC
+        # mount at /data is writable by the non-root container user.
       containers:
         - name: rhess
           image: quay.io/redhat-ai-dev/rhess:latest
