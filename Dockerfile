@@ -14,6 +14,7 @@ RUN npm run build
 # Runtime stage
 FROM registry.access.redhat.com/ubi9/nodejs-24:latest AS runtime
 
+USER root
 RUN dnf install -y git && dnf clean all
 
 WORKDIR /app
