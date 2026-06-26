@@ -75,7 +75,7 @@
 - [x] 9.2 Ensure `git` binary is available in runtime layer (`dnf install -y git` in Dockerfile)
 - [x] 9.3 Write Kubernetes `Deployment` manifest: env vars from Secret, PVC mount at `/data`, liveness/readiness probes
 - [x] 9.4 Write Kubernetes `Service`, `PersistentVolumeClaim`, and OpenShift `Route` manifests
-- [ ] 9.5 Verify `podman run -e RHESS_ADMIN_TOKEN=test -p 3000:3000 <image>` starts and serves the UI
+- [x] 9.5 Verify `podman run -e RHESS_ADMIN_TOKEN=test -p 3000:3000 <image>` starts and serves the UI
 - [x] 9.6 Add `npm run dev` script wiring `tsx watch` for server + `vite` for UI with concurrent runner
 
 ## 10. Documentation & Publication

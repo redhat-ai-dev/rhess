@@ -1,6 +1,7 @@
 # Build stage
 FROM registry.access.redhat.com/ubi9/nodejs-24:latest AS build
 
+USER root
 WORKDIR /build
 
 COPY package.json package-lock.json ./
