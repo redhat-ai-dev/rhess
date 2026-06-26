@@ -25,6 +25,6 @@
 
 ## 3. Verification
 
-- [ ] 3.1 Verify `.ci/openshift_e2e.sh` passes `shellcheck` with no errors
-- [ ] 3.2 Verify the ci-operator config is valid by running `ci-operator-prowgen` or `make ci-operator-config` against the new config file (if tooling is available locally), or manually review against the devfile/registry config for structural correctness
-- [ ] 3.3 Dry-run the test script locally (outside a cluster) to confirm it fails gracefully with a clear error about missing `$RHESS_IMAGE` or unreachable cluster, rather than silently succeeding
+- [x] 3.1 Verify `.ci/openshift_e2e.sh` passes `shellcheck` with no errors
+- [x] 3.2 Verify the ci-operator config is valid by running `ci-operator-prowgen` or `make ci-operator-config` against the new config file (if tooling is available locally), or manually review against the devfile/registry config for structural correctness
+- [x] 3.3 Dry-run the test script locally (outside a cluster) to confirm it fails gracefully with a clear error about missing `$RHESS_IMAGE` or unreachable cluster, rather than silently succeeding
