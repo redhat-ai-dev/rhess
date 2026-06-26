@@ -96,7 +96,7 @@ boot, with no sources registered, because bundled example skills are loaded auto
 #### Scenario: Bundled examples present in catalog
 
 - **WHEN** `GET /api/v1/skills` is called with no sources registered
-- **THEN** the response contains a non-empty `items` array
+- **THEN** the response contains a non-empty `data` array
 
 ---
 
@@ -142,12 +142,12 @@ source and assert that skills from that source appear in the catalog after sync.
 #### Scenario: Skills appear after sync
 
 - **WHEN** the sync triggered by registration completes
-- **THEN** `GET /api/v1/skills` returns a higher total count than the pre-registration baseline
+- **THEN** `GET /api/v1/skills` returns a higher `meta.total` count than the pre-registration baseline
 
 #### Scenario: Search returns results
 
 - **WHEN** `GET /api/v1/skills/search?q=openspec` is called after the source is synced
-- **THEN** the response contains at least one result
+- **THEN** the response `data` array contains at least one result
 
 ---
 

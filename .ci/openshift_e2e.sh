@@ -182,16 +182,16 @@ info "GATE PASS: /readyz — HTTP 200"
 # --- Bundled examples on first boot ---
 info "Checking bundled example skills"
 SKILLS_BODY="$(curl -sk --max-time 30 "${ROUTE_URL}/api/v1/skills")"
-SKILLS_COUNT="$(echo "${SKILLS_BODY}" | jq -r '.items | length' 2>/dev/null || echo "0")"
+SKILLS_COUNT="$(echo "${SKILLS_BODY}" | jq -r '.data | length' 2>/dev/null || echo "0")"
 if [[ "${SKILLS_COUNT}" -gt 0 ]]; then
   info "PASS: Bundled examples present (${SKILLS_COUNT} skills)"
   record_result "bundled-examples" "PASS"
 else
-  error "FAIL: Bundled examples — expected non-empty items array"
+  error "FAIL: Bundled examples — expected non-empty data array"
   record_result "bundled-examples" "FAIL"
 fi
 
-BASELINE_TOTAL="$(echo "${SKILLS_BODY}" | jq -r '.total // .items | length' 2>/dev/null || echo "0")"
+BASELINE_TOTAL="$(echo "${SKILLS_BODY}" | jq -r '.meta.total' 2>/dev/null || echo "0")"
 
 # --- .well-known discovery endpoint ---
 info "Checking /.well-known/agent-skills/index.json"
@@ -243,7 +243,7 @@ assert_http_code "source-registration-201" "201" "${REG_CODE}"
 # --- Post-sync: skills count increased ---
 info "Checking skills count after sync"
 POST_SYNC_BODY="$(curl -sk --max-time 30 "${ROUTE_URL}/api/v1/skills")"
-POST_SYNC_TOTAL="$(echo "${POST_SYNC_BODY}" | jq -r '.total // (.items | length)' 2>/dev/null || echo "0")"
+POST_SYNC_TOTAL="$(echo "${POST_SYNC_BODY}" | jq -r '.meta.total' 2>/dev/null || echo "0")"
 if [[ "${POST_SYNC_TOTAL}" -gt "${BASELINE_TOTAL}" ]]; then
   info "PASS: Skills count increased (${BASELINE_TOTAL} → ${POST_SYNC_TOTAL})"
   record_result "skills-count-increased" "PASS"
@@ -255,7 +255,7 @@ fi
 # --- Search ---
 info "Checking search"
 SEARCH_BODY="$(curl -sk --max-time 30 "${ROUTE_URL}/api/v1/skills/search?q=openspec")"
-SEARCH_COUNT="$(echo "${SEARCH_BODY}" | jq -r '.items | length' 2>/dev/null || echo "0")"
+SEARCH_COUNT="$(echo "${SEARCH_BODY}" | jq -r '.data | length' 2>/dev/null || echo "0")"
 if [[ "${SEARCH_COUNT}" -gt 0 ]]; then
   info "PASS: Search returned ${SEARCH_COUNT} result(s)"
   record_result "search-results" "PASS"
@@ -266,7 +266,7 @@ fi
 
 # --- Skill detail (dynamic slug) ---
 info "Checking skill detail retrieval"
-SKILL_SLUG="$(echo "${POST_SYNC_BODY}" | jq -r '[.items[] | select(.source == "rhess-self")][0].slug' 2>/dev/null || echo "")"
+SKILL_SLUG="$(echo "${POST_SYNC_BODY}" | jq -r '[.data[] | select(.source == "rhess-self")][0].slug' 2>/dev/null || echo "")"
 if [[ -z "${SKILL_SLUG}" ]]; then
   error "FAIL: Could not find any skill with source 'rhess-self' to test detail endpoint"
   record_result "skill-detail" "FAIL"

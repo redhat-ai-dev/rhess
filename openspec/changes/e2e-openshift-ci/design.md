@@ -80,7 +80,7 @@ The `openshift/release` config repository holds ci-operator YAML configs and gen
    - `GET /healthz` → `{"status":"ok"}` (HTTP 200)
    - `GET /readyz` → HTTP 200
 5. **Assert: bundled examples**
-   - `GET /api/v1/skills` → non-empty `items` array (bundled examples loaded on first boot)
+   - `GET /api/v1/skills` → non-empty `data` array (bundled examples loaded on first boot)
    - `GET /.well-known/agent-skills/index.json` → response contains `skills` array with at least one entry, each having `name`, `type`, `description`, `url`, `digest` fields
 6. **Assert: auth enforcement**
    - `POST /api/v1/sources` without token → HTTP 401
@@ -88,7 +88,7 @@ The `openshift/release` config repository holds ci-operator YAML configs and gen
 7. **Assert: source registration and sync**
    - `POST /api/v1/sources` with valid admin token, registering a known public skills repo
    - Poll `GET /api/v1/sources` or check sync report until source status is synced (or use sync response directly)
-   - `GET /api/v1/skills` → count increased from pre-registration baseline
+   - `GET /api/v1/skills` → `meta.total` increased from pre-registration baseline
    - `GET /api/v1/skills/search?q=<known-term>` → at least one result
 8. **Assert: skill detail and artifact**
    - `GET /api/v1/skills/:source/:slug` for a known skill → `name`, `description`, `content` fields present
