@@ -36,6 +36,15 @@ podman run \
 
 Then open [http://localhost:3000](http://localhost:3000) to browse the skills directory.
 
+## Quickstart (Podman Compose / Docker Compose)
+
+```bash
+cp .env.example .env        # set RHESS_ADMIN_TOKEN
+podman compose up -d        # or: docker compose up -d
+```
+
+Then open [http://localhost:3000](http://localhost:3000).
+
 ## Quickstart (Kubernetes / OpenShift)
 
 ```bash
