@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rhess
+  labels:
+    app: rhess
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rhess
+  template:
+    metadata:
+      labels:
+        app: rhess
+    spec:
+      containers:
+        - name: rhess
+          image: ghcr.io/redhat-ai-dev/rhess:latest
+          ports:
+            - containerPort: 3000
+              protocol: TCP
+          env:
+            - name: RHESS_ADMIN_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: rhess-secret
+                  key: admin-token
+            - name: DATABASE_PATH
+              value: /data/rhess.db
+            - name: PORT
+              value: "3000"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: rhess-data
