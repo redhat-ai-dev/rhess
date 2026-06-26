@@ -71,16 +71,16 @@
 
 ## 9. Container & Deployment
 
-- [ ] 9.1 Write multi-stage `Dockerfile`: build stage on `ubi9/nodejs-24` compiles TS + Vite; runtime stage copies `dist/` and `node_modules` production only
-- [ ] 9.2 Ensure `git` binary is available in runtime layer (`dnf install -y git` in Dockerfile)
-- [ ] 9.3 Write Kubernetes `Deployment` manifest: env vars from Secret, PVC mount at `/data`, liveness/readiness probes
-- [ ] 9.4 Write Kubernetes `Service`, `PersistentVolumeClaim`, and OpenShift `Route` manifests
+- [x] 9.1 Write multi-stage `Dockerfile`: build stage on `ubi9/nodejs-24` compiles TS + Vite; runtime stage copies `dist/` and `node_modules` production only
+- [x] 9.2 Ensure `git` binary is available in runtime layer (`dnf install -y git` in Dockerfile)
+- [x] 9.3 Write Kubernetes `Deployment` manifest: env vars from Secret, PVC mount at `/data`, liveness/readiness probes
+- [x] 9.4 Write Kubernetes `Service`, `PersistentVolumeClaim`, and OpenShift `Route` manifests
 - [ ] 9.5 Verify `podman run -e RHESS_ADMIN_TOKEN=test -p 3000:3000 <image>` starts and serves the UI
-- [ ] 9.6 Add `npm run dev` script wiring `tsx watch` for server + `vite` for UI with concurrent runner
+- [x] 9.6 Add `npm run dev` script wiring `tsx watch` for server + `vite` for UI with concurrent runner
 
 ## 10. Documentation & Publication
 
-- [ ] 10.1 Write `README.md`: quickstart (local + Kubernetes), environment variable reference, architecture overview, contribution guidelines
-- [ ] 10.2 Document single-replica SQLite constraint in a `docs/developer-preview.md` release notes file
-- [ ] 10.3 Add `LICENSE` file (Apache-2.0)
-- [ ] 10.4 Promote capability specs from change workspace to `openspec/specs/`: `skills-catalog-api`, `skill-source-management`, `skill-ingestion`, `rbac-auth`, `web-directory`, `container-deployment`
+- [x] 10.1 Write `README.md`: quickstart (local + Kubernetes), environment variable reference, architecture overview, contribution guidelines
+- [x] 10.2 Document single-replica SQLite constraint in a `docs/developer-preview.md` release notes file
+- [x] 10.3 Add `LICENSE` file (Apache-2.0)
+- [x] 10.4 Promote capability specs from change workspace to `openspec/specs/`: `skills-catalog-api`, `skill-source-management`, `skill-ingestion`, `rbac-auth`, `web-directory`, `container-deployment`

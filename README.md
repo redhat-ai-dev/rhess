@@ -39,7 +39,7 @@ Then open [http://localhost:3000](http://localhost:3000) to browse the skills di
 ## Quickstart (Kubernetes / OpenShift)
 
 ```bash
-kubectl apply -f deploy/
+kubectl apply -k deploy/
 ```
 
 See [docs/developer-preview.md](docs/developer-preview.md) for known limitations and single-replica constraints.

@@ -20,7 +20,7 @@
     "test:watch": "vitest",
     "lint": "eslint .",
     "openapi": "tsx scripts/generate-openapi.ts",
-    "prepare": "husky"
+    "prepare": "husky || true"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.1",
