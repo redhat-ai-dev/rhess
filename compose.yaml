@@ -4,7 +4,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      RHESS_ADMIN_TOKEN: ${RHESS_ADMIN_TOKEN}
+      RHESS_ADMIN_TOKEN: ${RHESS_ADMIN_TOKEN:?Set RHESS_ADMIN_TOKEN in .env (run: openssl rand -hex 32)}
       DATABASE_PATH: /data/rhess.db
     volumes:
       - rhess-data:/data
