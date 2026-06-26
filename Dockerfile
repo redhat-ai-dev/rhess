@@ -27,6 +27,10 @@ RUN npm ci --omit=dev
 
 COPY --from=build /build/dist ./dist
 
+RUN mkdir -p /data \
+  && chgrp -R 0 /data \
+  && chmod -R g+rwX /data
+
 VOLUME /data
 
 EXPOSE 3000

@@ -6,6 +6,8 @@ metadata:
     app: rhess
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: rhess
@@ -14,6 +16,9 @@ spec:
       labels:
         app: rhess
     spec:
+      securityContext:
+        fsGroup: 1001
+        fsGroupChangePolicy: OnRootMismatch
       containers:
         - name: rhess
           image: ghcr.io/redhat-ai-dev/rhess:latest
