@@ -24,7 +24,7 @@ ENV PORT=3000
 ENV DATABASE_PATH=/data/rhess.db
 
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev --ignore-scripts && npm rebuild
+RUN npm ci --omit=dev
 
 COPY --from=build /build/dist ./dist
 
