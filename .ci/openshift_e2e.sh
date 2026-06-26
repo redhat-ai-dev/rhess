@@ -237,7 +237,6 @@ REG_RESPONSE="$(curl -sk --max-time 120 -w '\n%{http_code}' \
   -d '{"slug":"rhess-self","url":"https://github.com/redhat-ai-dev/rhess"}' \
   "${ROUTE_URL}/api/v1/sources")"
 REG_CODE="$(echo "${REG_RESPONSE}" | tail -1)"
-REG_BODY="$(echo "${REG_RESPONSE}" | sed '$d')"
 assert_http_code "source-registration-201" "201" "${REG_CODE}"
 
 # --- Post-sync: skills count increased ---
