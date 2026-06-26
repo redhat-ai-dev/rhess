@@ -24,7 +24,7 @@ ENV PORT=3000
 ENV DATABASE_PATH=/data/rhess.db
 
 COPY package.json package-lock.json ./
-RUN HUSKY=0 npm ci --omit=dev
+RUN npm pkg set scripts.prepare="" && npm ci --omit=dev
 
 COPY --from=build /build/dist ./dist
 
