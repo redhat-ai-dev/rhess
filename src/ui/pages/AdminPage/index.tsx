@@ -311,6 +311,7 @@ const AdminPage: React.FC = () => {
   };
 
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadSeq = useRef(0);
 
   const addToast = (variant: Toast['variant'], title: string, body?: string) => {
     const id = ++toastId;
@@ -319,12 +320,29 @@ const AdminPage: React.FC = () => {
   };
 
   const loadData = useCallback(async (q = '') => {
+    const seq = ++loadSeq.current;
     setLoading(true);
     try {
       const [skillsRes, sourcesRes] = await Promise.all([
-        q.trim() ? searchSkills(q.trim()).then((r) => ({ skills: r.skills })) : getSkills({ per_page: 100 }),
+        q.trim()
+          ? searchSkills(q.trim()).then((r) => ({ skills: r.skills, total: r.total }))
+          : (async () => {
+              const batches: Skill[][] = [];
+              let currentPage = 1;
+              let totalPages = 1;
+              let total = 0;
+              do {
+                const data = await getSkills({ page: currentPage, per_page: 100 });
+                batches.push(data.skills);
+                totalPages = data.total_pages;
+                total = data.total;
+                currentPage++;
+              } while (currentPage <= totalPages);
+              return { skills: batches.flat(), total };
+            })(),
         getSources(),
       ]);
+      if (seq !== loadSeq.current) return;
       setSkills(skillsRes.skills);
       // Preserve any optimistic lastSynced updates that are newer than what the server returned
       setSources((prev) =>
@@ -337,13 +355,14 @@ const AdminPage: React.FC = () => {
         })
       );
       if (!q.trim()) {
-        setTotalSkillsCount(skillsRes.skills.length);
+        setTotalSkillsCount(skillsRes.total);
         setTotalSourcesCount(sourcesRes.sources.length);
       }
     } catch (err: unknown) {
+      if (seq !== loadSeq.current) return;
       addToast('danger', 'Could not load skills', (err as Error).message);
     } finally {
-      setLoading(false);
+      if (seq === loadSeq.current) setLoading(false);
     }
   }, []);
 
