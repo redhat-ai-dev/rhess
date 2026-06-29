@@ -311,6 +311,7 @@ const AdminPage: React.FC = () => {
   };
 
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadSeq = useRef(0);
 
   const addToast = (variant: Toast['variant'], title: string, body?: string) => {
     const id = ++toastId;
@@ -319,6 +320,7 @@ const AdminPage: React.FC = () => {
   };
 
   const loadData = useCallback(async (q = '') => {
+    const seq = ++loadSeq.current;
     setLoading(true);
     try {
       const [skillsRes, sourcesRes] = await Promise.all([
@@ -340,6 +342,7 @@ const AdminPage: React.FC = () => {
             })(),
         getSources(),
       ]);
+      if (seq !== loadSeq.current) return;
       setSkills(skillsRes.skills);
       // Preserve any optimistic lastSynced updates that are newer than what the server returned
       setSources((prev) =>
@@ -356,9 +359,10 @@ const AdminPage: React.FC = () => {
         setTotalSourcesCount(sourcesRes.sources.length);
       }
     } catch (err: unknown) {
+      if (seq !== loadSeq.current) return;
       addToast('danger', 'Could not load skills', (err as Error).message);
     } finally {
-      setLoading(false);
+      if (seq === loadSeq.current) setLoading(false);
     }
   }, []);
 
