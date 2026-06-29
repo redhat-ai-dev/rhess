@@ -322,7 +322,22 @@ const AdminPage: React.FC = () => {
     setLoading(true);
     try {
       const [skillsRes, sourcesRes] = await Promise.all([
-        q.trim() ? searchSkills(q.trim()).then((r) => ({ skills: r.skills })) : getSkills({ per_page: 100 }),
+        q.trim()
+          ? searchSkills(q.trim()).then((r) => ({ skills: r.skills, total: r.total }))
+          : (async () => {
+              const batches: Skill[][] = [];
+              let currentPage = 1;
+              let totalPages = 1;
+              let total = 0;
+              do {
+                const data = await getSkills({ page: currentPage, per_page: 100 });
+                batches.push(data.skills);
+                totalPages = data.total_pages;
+                total = data.total;
+                currentPage++;
+              } while (currentPage <= totalPages);
+              return { skills: batches.flat(), total };
+            })(),
         getSources(),
       ]);
       setSkills(skillsRes.skills);
@@ -337,7 +352,7 @@ const AdminPage: React.FC = () => {
         })
       );
       if (!q.trim()) {
-        setTotalSkillsCount(skillsRes.skills.length);
+        setTotalSkillsCount(skillsRes.total);
         setTotalSourcesCount(sourcesRes.sources.length);
       }
     } catch (err: unknown) {
