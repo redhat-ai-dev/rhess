@@ -261,6 +261,7 @@ const SkillsPage: React.FC = () => {
   useEffect(() => {
     if (!search.trim()) {
       setSearchResults(null);
+      setSearchLoading(false);
       return;
     }
     setSearchLoading(true);
