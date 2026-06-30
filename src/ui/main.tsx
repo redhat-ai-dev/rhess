@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
+import '@fontsource/red-hat-text/500.css';
 import '@patternfly/react-core/dist/styles/base.css';
 import './global.css';
 

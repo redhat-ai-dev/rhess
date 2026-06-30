@@ -3,6 +3,16 @@
   to   { transform: rotate(360deg); }
 }
 
+/* ── Masthead brand ─────────────────────────────────────────────────────── */
+
+.rhess-masthead-brand-text {
+  font-family: 'Red Hat Text', var(--pf-t--global--font--family--body, sans-serif);
+  font-weight: 500;
+  font-size: 1rem;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
 /* ── Glass mode ─────────────────────────────────────────────────────────── */
 
 /* Strip backgrounds from page shells so the background image shows through.
