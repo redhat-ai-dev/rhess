@@ -14,12 +14,15 @@ import {
 import { OutlinedMoonIcon, RhUiLightModeIcon, LockIcon, ArrowLeftIcon } from '@patternfly/react-icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTheme } from '../../hooks/useTheme';
+import RhIconSkills from '../RhIconSkills';
 
 interface AppLayoutProps {
   children: React.ReactNode;
 }
 
 const MAIN_ID = 'rhess-main-content';
+const BRAND_LABEL = 'Enterprise Skills Server';
+const brandColor = (dark: boolean) => (dark ? '#ffffff' : '#000000');
 
 const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const { isDark, toggle: toggleTheme } = useTheme();
@@ -32,11 +35,23 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     <Masthead>
       <MastheadMain>
         <MastheadBrand onClick={() => navigate('/skills')} style={{ cursor: 'pointer' }}>
-          <img
-            src={isDark ? '/logo-dark.png' : '/logo-light.png'}
-            alt="Red Hat Enterprise Skills Server"
-            style={{ height: '32px', width: 'auto' }}
-          />
+          <Flex
+            alignItems={{ default: 'alignItemsCenter' }}
+            gap={{ default: 'gapSm' }}
+            style={{ color: brandColor(isDark) }}
+          >
+            <FlexItem>
+              <RhIconSkills size={32} />
+            </FlexItem>
+            <FlexItem>
+              <span
+                className="rhess-masthead-brand-text"
+                aria-label={BRAND_LABEL}
+              >
+                {BRAND_LABEL}
+              </span>
+            </FlexItem>
+          </Flex>
         </MastheadBrand>
       </MastheadMain>
       <MastheadContent>

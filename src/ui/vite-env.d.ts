@@ -8,3 +8,8 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+declare module '@rhds/icons/standard/skills.js' {
+  const icon: DocumentFragment;
+  export default icon;
+}
