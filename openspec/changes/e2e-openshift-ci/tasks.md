@@ -21,7 +21,7 @@
 - [x] 2.1 Create directory `ci-operator/config/redhat-ai-dev/rhess/` in the `openshift/release` repo (`~/git/release`)
 - [x] 2.2 Create `ci-operator/config/redhat-ai-dev/rhess/redhat-ai-dev-rhess-main.yaml`: `build_root` image stream tag, `images` building `rhess` from root `Dockerfile`, `releases` with OCP 4.18 `initial`/`latest` (with `include_built_images: true`), `resources`, and `tests` entry for `rhess-e2e` using `cluster_profile: aws-devfile`, `BASE_DOMAIN: devfile-ci.com`, `workflow: ipi-aws`, `from: src`, dependency `RHESS_IMAGE` → `rhess`, `optional: true`, commands invoking `.ci/openshift_e2e.sh`
 - [x] 2.3 Create `ci-operator/config/redhat-ai-dev/rhess/OWNERS` with `johnmcollier` as sole approver and reviewer
-- [ ] 2.4 Run `make update` in the release repo to generate Prow job YAMLs under `ci-operator/jobs/redhat-ai-dev/rhess/`, verify generated files exist
+- [x] 2.4 Run `make update` in the release repo to generate Prow job YAMLs under `ci-operator/jobs/redhat-ai-dev/rhess/`, verify generated files exist
 
 ## 3. Verification
 
